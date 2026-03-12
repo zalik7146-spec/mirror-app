@@ -1,0 +1,154 @@
+@import "tailwindcss";
+
+@layer base {
+  :root {
+    --color-parchment: #f5f0e8;
+    --color-warm-white: #faf7f2;
+    --color-ink: #2c2416;
+    --color-ink-light: #5c4f3a;
+    --color-amber: #c8922a;
+    --color-amber-light: #e8c97a;
+    --color-green-dark: #2d4a3e;
+    --color-green-mid: #4a7c6f;
+    --color-wood: #8b6914;
+    --color-shadow: rgba(44, 36, 22, 0.08);
+  }
+
+  * {
+    box-sizing: border-box;
+    margin: 0;
+    padding: 0;
+  }
+
+  html {
+    scroll-behavior: smooth;
+  }
+
+  body {
+    font-family: 'Raleway', sans-serif;
+    background-color: var(--color-warm-white);
+    color: var(--color-ink);
+    min-height: 100vh;
+    overflow-x: hidden;
+    transition: background-color 0.5s ease, color 0.3s ease;
+  }
+
+  h1, h2, h3, h4, h5 {
+    font-family: 'Cormorant Garamond', serif;
+  }
+
+  button {
+    transition: background-color 0.3s ease, color 0.3s ease, border-color 0.3s ease, opacity 0.3s ease;
+  }
+
+  input, textarea {
+    transition: background-color 0.3s ease, border-color 0.3s ease, color 0.3s ease;
+    font-family: 'Raleway', sans-serif;
+    outline: none;
+    resize: none;
+  }
+
+  textarea:focus, input:focus { outline: none; }
+}
+
+/* ─── Единая анимация раскрытия книги ─────────────────── */
+
+@keyframes bookOpen {
+  0% {
+    opacity: 0;
+    transform: scale(0.94);
+  }
+  60% {
+    opacity: 1;
+    transform: scale(1.01);
+  }
+  100% {
+    opacity: 1;
+    transform: scale(1);
+  }
+}
+
+.page-flip {
+  animation: bookOpen 0.5s cubic-bezier(0.34, 1.56, 0.64, 1) both;
+}
+
+/* ─── Прочие анимации (только для внутренних элементов) ── */
+
+@keyframes mirrorGlow {
+  from { filter: drop-shadow(0 4px 16px rgba(200,146,42,0.2)); }
+  to   { filter: drop-shadow(0 4px 40px rgba(200,146,42,0.6)); }
+}
+
+@keyframes flicker {
+  0%, 100% { opacity: 1; }
+  50%       { opacity: 0.85; }
+}
+
+@keyframes gentleFloat {
+  0%, 100% { transform: translateY(0px); }
+  50%       { transform: translateY(-6px); }
+}
+
+@keyframes fadeIn {
+  from { opacity: 0; }
+  to   { opacity: 1; }
+}
+
+@keyframes pulse {
+  0%, 100% { transform: scale(1); opacity: 0.8; }
+  50%       { transform: scale(1.08); opacity: 1; }
+}
+
+.animate-fadeIn    { animation: fadeIn 0.6s ease forwards; }
+.animate-flicker   { animation: flicker 3s ease-in-out infinite; }
+.animate-float     { animation: gentleFloat 4s ease-in-out infinite; }
+.animate-pulse-soft { animation: pulse 3s ease-in-out infinite; }
+
+/* ─── Ночная тема ─────────────────────────────────────── */
+[data-theme="night"] {
+  --color-parchment: #1a1612;
+  --color-warm-white: #12100d;
+  --color-ink: #e8dcc8;
+  --color-ink-light: #b8a882;
+  --color-amber: #d4a43a;
+  --color-amber-light: #8b6914;
+  --color-green-dark: #1a2e28;
+  --color-green-mid: #2d4a3e;
+  --color-wood: #c8922a;
+  --color-shadow: rgba(0, 0, 0, 0.3);
+}
+
+/* ─── Фон библиотеки ──────────────────────────────────── */
+.library-bg {
+  background-color: var(--color-warm-white);
+  background-image:
+    radial-gradient(ellipse at 20% 50%, rgba(200, 146, 42, 0.06) 0%, transparent 60%),
+    radial-gradient(ellipse at 80% 20%, rgba(45, 74, 62, 0.05) 0%, transparent 50%);
+}
+
+[data-theme="night"] .library-bg {
+  background-image:
+    radial-gradient(ellipse at 20% 50%, rgba(200, 146, 42, 0.04) 0%, transparent 60%),
+    radial-gradient(ellipse at 80% 20%, rgba(45, 74, 62, 0.06) 0%, transparent 50%);
+}
+
+/* ─── Карточки ────────────────────────────────────────── */
+.card-hover {
+  transition: transform 0.3s ease, box-shadow 0.3s ease;
+}
+.card-hover:hover {
+  transform: translateY(-4px);
+  box-shadow: 0 12px 40px rgba(44, 36, 22, 0.12);
+}
+
+.text-gradient {
+  background: linear-gradient(135deg, var(--color-amber) 0%, var(--color-wood) 100%);
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+  background-clip: text;
+}
+
+/* ─── Скроллбар ───────────────────────────────────────── */
+::-webkit-scrollbar { width: 6px; }
+::-webkit-scrollbar-track { background: var(--color-parchment); }
+::-webkit-scrollbar-thumb { background: var(--color-amber-light); border-radius: 3px; }
