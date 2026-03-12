@@ -1,5 +1,7 @@
 import { useTheme } from '../context/ThemeContext';
 import DailyQuote from './DailyQuote';
+import Stats from './Stats';
+import WeekWidget from './WeekWidget';
 import { Section } from '../App';
 
 interface ShelfBook {
@@ -224,8 +226,21 @@ export default function Home({ onNavigate }: Props) {
           }}
         />
 
+        {/* Виджет недели и статистика */}
+        <div style={{
+          marginTop: '2rem',
+          background: isDark ? 'rgba(255,255,255,0.03)' : 'rgba(44,36,22,0.03)',
+          borderRadius: '20px',
+          padding: '1.25rem 0 0.5rem',
+          border: isDark ? '1px solid rgba(200,146,42,0.08)' : '1px solid rgba(44,36,22,0.06)',
+        }}>
+          <WeekWidget />
+          <div style={{ height: '1px', background: isDark ? 'rgba(200,146,42,0.1)' : 'rgba(44,36,22,0.06)', margin: '0.75rem 1rem' }} />
+          <Stats onNavigate={onNavigate} />
+        </div>
+
         {/* Дополнительная мотивация */}
-        <div className="text-center mt-20">
+        <div className="text-center mt-12 pb-4">
           <p style={{ color: isDark ? '#8b6914' : '#8b6914', fontFamily: 'Cormorant Garamond, serif' }} className="text-lg italic">
             Это твоё пространство. Здесь нет правил. Только ты.
           </p>

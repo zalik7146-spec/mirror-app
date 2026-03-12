@@ -63,6 +63,104 @@ function usePageSound() {
   return playPageTurn;
 }
 
+function LibrarySound() {
+  const { isDark } = useTheme();
+  const [playing, setPlaying] = useState(false);
+  const audioCtx = useRef<AudioContext | null>(null);
+  const noiseNode = useRef<AudioBufferSourceNode | null>(null);
+  const gainNode = useRef<GainNode | null>(null);
+
+  const toggle = () => {
+    try {
+      if (playing) {
+        gainNode.current?.gain.linearRampToValueAtTime(0, (audioCtx.current?.currentTime || 0) + 0.5);
+        setTimeout(() => {
+          noiseNode.current?.stop();
+          setPlaying(false);
+        }, 500);
+        return;
+      }
+
+      if (!audioCtx.current) {
+        audioCtx.current = new (window.AudioContext || (window as any).webkitAudioContext)();
+      }
+      const ctx = audioCtx.current;
+
+      // Создаём тихий розовый шум — как тишина библиотеки
+      const bufferSize = ctx.sampleRate * 4;
+      const buffer = ctx.createBuffer(1, bufferSize, ctx.sampleRate);
+      const data = buffer.getChannelData(0);
+      let b0 = 0, b1 = 0, b2 = 0, b3 = 0, b4 = 0, b5 = 0;
+      for (let i = 0; i < bufferSize; i++) {
+        const white = Math.random() * 2 - 1;
+        b0 = 0.99886 * b0 + white * 0.0555179;
+        b1 = 0.99332 * b1 + white * 0.0750759;
+        b2 = 0.96900 * b2 + white * 0.1538520;
+        b3 = 0.86650 * b3 + white * 0.3104856;
+        b4 = 0.55000 * b4 + white * 0.5329522;
+        b5 = -0.7616 * b5 - white * 0.0168980;
+        data[i] = (b0 + b1 + b2 + b3 + b4 + b5 + white * 0.5362) * 0.05;
+      }
+
+      const source = ctx.createBufferSource();
+      source.buffer = buffer;
+      source.loop = true;
+
+      const filter = ctx.createBiquadFilter();
+      filter.type = 'lowpass';
+      filter.frequency.value = 800;
+
+      const gain = ctx.createGain();
+      gain.gain.setValueAtTime(0, ctx.currentTime);
+      gain.gain.linearRampToValueAtTime(0.15, ctx.currentTime + 1);
+
+      source.connect(filter);
+      filter.connect(gain);
+      gain.connect(ctx.destination);
+      source.start();
+
+      noiseNode.current = source;
+      gainNode.current = gain;
+      setPlaying(true);
+    } catch (e) {}
+  };
+
+  return (
+    <button
+      onClick={toggle}
+      title={playing ? 'Выключить звук библиотеки' : 'Звук библиотеки'}
+      style={{
+        position: 'fixed',
+        top: '16px',
+        right: '64px',
+        zIndex: 100,
+        background: playing
+          ? 'rgba(200, 146, 42, 0.2)'
+          : isDark
+            ? 'rgba(200, 146, 42, 0.1)'
+            : 'rgba(44, 36, 22, 0.06)',
+        border: playing
+          ? '1px solid rgba(200, 146, 42, 0.4)'
+          : isDark
+            ? '1px solid rgba(200, 146, 42, 0.2)'
+            : '1px solid rgba(44, 36, 22, 0.1)',
+        borderRadius: '50%',
+        width: '40px',
+        height: '40px',
+        display: 'flex',
+        alignItems: 'center',
+        justifyContent: 'center',
+        fontSize: '1rem',
+        cursor: 'pointer',
+        backdropFilter: 'blur(8px)',
+        transition: 'all 0.4s ease',
+      }}
+    >
+      {playing ? '🔊' : '🔈'}
+    </button>
+  );
+}
+
 function ThemeToggle() {
   const { isDark, toggleTheme } = useTheme();
   return (
@@ -142,6 +240,7 @@ function AppInner() {
   return (
     <div className="library-bg" style={{ minHeight: '100vh' }}>
       <ThemeToggle />
+      <LibrarySound />
       <main key={animKey} className="page-flip">
         {renderSection()}
       </main>
