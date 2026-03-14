@@ -1,76 +1,48 @@
+import { Section } from '../App';
 import { useTheme } from '../context/ThemeContext';
 
-type Section = 'home' | 'diary' | 'workshop' | 'gratitude' | 'mood' | 'sage' | 'compass' | 'mirror' | 'settings';
+interface Props { current: Section; onNavigate: (s: Section) => void; }
 
-interface NavigationProps {
-  current: Section;
-  onNavigate: (section: Section) => void;
-}
-
-const navItems = [
-  { id: 'diary' as Section, emoji: '📖' },
-  { id: 'workshop' as Section, emoji: '🛠️' },
-  { id: 'gratitude' as Section, emoji: '🙏' },
-  { id: 'mood' as Section, emoji: '🌡️' },
-  { id: 'compass' as Section, emoji: '🧭' },
-  { id: 'mirror' as Section, emoji: '🔮' },
-  { id: 'sage' as Section, emoji: '💬' },
-  { id: 'settings' as Section, emoji: '⚙️' },
-];
-
-export default function Navigation({ current, onNavigate }: NavigationProps) {
+export default function Navigation({ current, onNavigate }: Props) {
   const { isDark } = useTheme();
+  const bg = isDark ? '#1a1410' : '#fdf6ec';
+  const border = isDark ? '#3d2e1e' : '#e8d5b0';
+
+  const items: { id: Section; emoji: string }[] = [
+    { id: 'home', emoji: '🪞' },
+    { id: 'diary', emoji: '📖' },
+    { id: 'gratitude', emoji: '🙏' },
+    { id: 'mood', emoji: '🌡️' },
+    { id: 'workshop', emoji: '🛠️' },
+    { id: 'compass', emoji: '🧭' },
+    { id: 'mirror', emoji: '🔮' },
+    { id: 'sage', emoji: '💬' },
+    { id: 'settings', emoji: '⚙️' },
+  ];
 
   return (
-    <nav
-      className="fixed bottom-0 left-0 right-0 z-40"
-      style={{
-        background: isDark ? 'rgba(15,10,5,0.95)' : 'rgba(250,243,230,0.95)',
-        backdropFilter: 'blur(20px)',
-        borderTop: `1px solid ${isDark ? '#2a1a08' : '#e8d5b7'}`,
-        paddingBottom: 'env(safe-area-inset-bottom)',
-      }}
-    >
-      <div className="flex items-center justify-around px-1 py-2">
-        <button
-          onClick={() => onNavigate('home')}
-          style={{
-            display: 'flex',
-            alignItems: 'center',
-            justifyContent: 'center',
-            width: '36px',
-            height: '36px',
-            borderRadius: '10px',
-            border: 'none',
-            background: current === 'home' ? (isDark ? '#2a1a08' : '#f0e0c8') : 'transparent',
-            cursor: 'pointer',
-          }}
-        >
-          <span style={{ fontSize: '1.1rem', opacity: current === 'home' ? 1 : 0.6 }}>🪞</span>
+    <nav style={{
+      position: 'fixed', bottom: 0, left: 0, right: 0,
+      background: bg, borderTop: `1px solid ${border}`,
+      display: 'flex', alignItems: 'center', justifyContent: 'space-around',
+      paddingBottom: 'env(safe-area-inset-bottom)',
+      paddingTop: '0.5rem', zIndex: 100,
+    }}>
+      {items.map(item => (
+        <button key={item.id} onClick={() => onNavigate(item.id)} style={{
+          background: current === item.id ? (isDark ? '#2d1f0e' : '#f5e6c8') : 'none',
+          border: 'none', cursor: 'pointer',
+          fontSize: current === item.id ? '1.6rem' : '1.4rem',
+          padding: '0.4rem',
+          width: '2.5rem', height: '2.5rem',
+          display: 'flex', alignItems: 'center', justifyContent: 'center',
+          borderRadius: '50%',
+          transform: current === item.id ? 'scale(1.1)' : 'scale(1)',
+          transition: 'all 0.2s ease',
+        }}>
+          {item.emoji}
         </button>
-
-        <div style={{ width: '1px', height: '20px', background: isDark ? '#2a1a08' : '#e8d5b7' }} />
-
-        {navItems.map((item) => (
-          <button
-            key={item.id}
-            onClick={() => onNavigate(item.id)}
-            style={{
-              display: 'flex',
-              alignItems: 'center',
-              justifyContent: 'center',
-              width: '36px',
-              height: '36px',
-              borderRadius: '10px',
-              border: 'none',
-              background: current === item.id ? (isDark ? '#2a1a08' : '#f0e0c8') : 'transparent',
-              cursor: 'pointer',
-            }}
-          >
-            <span style={{ fontSize: '1.1rem', opacity: current === item.id ? 1 : 0.6 }}>{item.emoji}</span>
-          </button>
-        ))}
-      </div>
+      ))}
     </nav>
   );
 }

@@ -1,452 +1,306 @@
-import { useState, useEffect } from 'react'
-import { useTheme } from '../context/ThemeContext'
+import { useState, useEffect } from 'react';
+import { useTheme } from '../context/ThemeContext';
 
-interface DiarySection {
-  id: string
-  icon: string
-  question: string
-  placeholder: string
-  color: string
+interface Entry {
+  id: string;
+  date: string;
+  mood: string;
+  moodEmoji: string;
+  text: string;
+  tags: string[];
+  mode: string;
 }
-
-interface DiaryEntry {
-  id: string
-  date: string
-  mood: string
-  moodColor: string
-  sections: { [key: string]: string }
-  timestamp: number
-}
-
-const SECTIONS: DiarySection[] = [
-  {
-    id: 'morning',
-    icon: '🌅',
-    question: 'Как начался твой день?',
-    placeholder: 'Первые мысли, ощущения, настроение с утра...',
-    color: '#F59E0B'
-  },
-  {
-    id: 'mind',
-    icon: '💭',
-    question: 'Что сейчас на уме?',
-    placeholder: 'Мысли, которые крутятся в голове...',
-    color: '#8B5CF6'
-  },
-  {
-    id: 'moment',
-    icon: '✨',
-    question: 'Момент который запомнится',
-    placeholder: 'Что-то маленькое или большое, что тронуло...',
-    color: '#10B981'
-  },
-  {
-    id: 'evening',
-    icon: '🌙',
-    question: 'Как заканчивается день?',
-    placeholder: 'Итог дня, ощущение, с чем ложишься спать...',
-    color: '#3B82F6'
-  }
-]
 
 const MOODS = [
-  { emoji: '😌', label: 'Спокойно', color: '#10B981' },
-  { emoji: '😊', label: 'Хорошо', color: '#F59E0B' },
-  { emoji: '🥰', label: 'Радостно', color: '#EC4899' },
-  { emoji: '😔', label: 'Грустно', color: '#6366F1' },
-  { emoji: '😰', label: 'Тревожно', color: '#EF4444' },
-  { emoji: '😤', label: 'Раздражённо', color: '#F97316' },
-  { emoji: '😴', label: 'Устало', color: '#8B5CF6' },
-  { emoji: '🤔', label: 'Задумчиво', color: '#14B8A6' },
-]
+  { label: 'Радостно', emoji: '😊', color: '#f59e0b' },
+  { label: 'Спокойно', emoji: '😌', color: '#10b981' },
+  { label: 'Тревожно', emoji: '😰', color: '#6366f1' },
+  { label: 'Грустно', emoji: '😢', color: '#3b82f6' },
+  { label: 'Устало', emoji: '😴', color: '#8b5cf6' },
+  { label: 'Злюсь', emoji: '😤', color: '#ef4444' },
+  { label: 'Вдохновлённо', emoji: '✨', color: '#f97316' },
+  { label: 'Растерянно', emoji: '😕', color: '#6b7280' },
+];
 
-const getDayName = () => {
-  const days = ['Воскресенье', 'Понедельник', 'Вторник', 'Среда', 'Четверг', 'Пятница', 'Суббота']
-  return days[new Date().getDay()]
-}
+const TAGS = ['размышления', 'эмоции', 'цели', 'отношения', 'работа', 'тело', 'благодарность', 'инсайт'];
 
-const getDateStr = () => {
-  return new Date().toLocaleDateString('ru-RU', { day: 'numeric', month: 'long', year: 'numeric' })
-}
+const MODES = [
+  { id: 'free', label: '🌊 Свободный поток', desc: 'Пиши без правил' },
+  { id: 'day', label: '🌅 Страница дня', desc: 'Четыре момента' },
+  { id: 'six', label: '🔍 Шесть вопросов', desc: 'Глубокая рефлексия' },
+];
 
-const getSeason = () => {
-  const m = new Date().getMonth()
-  if (m >= 2 && m <= 4) return '🌸 Весна'
-  if (m >= 5 && m <= 7) return '☀️ Лето'
-  if (m >= 8 && m <= 10) return '🍂 Осень'
-  return '❄️ Зима'
-}
+const DAY_QUESTIONS = [
+  { emoji: '☀️', q: 'Как начался твой день?' },
+  { emoji: '💭', q: 'Что сейчас на уме?' },
+  { emoji: '✨', q: 'Момент который запомнится' },
+  { emoji: '🌙', q: 'Как заканчивается день?' },
+];
+
+const SIX_QUESTIONS = [
+  { emoji: '🌊', q: 'Что сейчас тяжело лежит на сердце?', hint: 'Назови это — уже легче' },
+  { emoji: '☀️', q: 'Что сегодня согрело тебя изнутри?', hint: 'Даже маленькое' },
+  { emoji: '🌀', q: 'От чего ты сегодня уходишь в сторону?', hint: 'Честно — без осуждения' },
+  { emoji: '💫', q: 'Чего ты сейчас по-настоящему хочешь?', hint: 'Не должен, не нужно — хочешь' },
+  { emoji: '🙏', q: 'За что ты благодарен сегодня?', hint: 'Одна вещь — уже много' },
+  { emoji: '💡', q: 'Что ты понял о себе сегодня?', hint: 'Любое наблюдение' },
+];
 
 export default function Diary() {
-  const { isDark } = useTheme()
-  const [entries, setEntries] = useState<DiaryEntry[]>([])
-  const [view, setView] = useState<'list' | 'new' | 'detail'>('list')
-  const [selectedEntry, setSelectedEntry] = useState<DiaryEntry | null>(null)
-  const [currentSection, setCurrentSection] = useState(0)
-  const [mood, setMood] = useState('')
-  const [moodColor, setMoodColor] = useState('')
-  const [sections, setSections] = useState<{ [key: string]: string }>({})
-  const [animating, setAnimating] = useState(false)
-  const [direction, setDirection] = useState<'next' | 'prev'>('next')
-  const [showMoodPicker, setShowMoodPicker] = useState(true)
+  const { isDark } = useTheme();
+  const [entries, setEntries] = useState<Entry[]>([]);
+  const [mode, setMode] = useState('free');
+  const [mood, setMood] = useState('');
+  const [moodEmoji, setMoodEmoji] = useState('');
+  const [text, setText] = useState('');
+  const [dayAnswers, setDayAnswers] = useState(['', '', '', '']);
+  const [sixAnswers, setSixAnswers] = useState(['', '', '', '', '', '']);
+  const [tags, setTags] = useState<string[]>([]);
+  const [search, setSearch] = useState('');
+  const [filterTag, setFilterTag] = useState('');
+  const [viewEntry, setViewEntry] = useState<Entry | null>(null);
+  const [saved, setSaved] = useState(false);
+  const [showSaved, setShowSaved] = useState(false);
+
+  const bg = isDark ? '#1a1410' : '#fdf6ec';
+  const text2 = isDark ? '#e8d5b0' : '#5c4a2a';
+  const soft = isDark ? '#a89070' : '#8a7560';
+  const card = isDark ? '#2d2218' : '#fff9f0';
+  const border = isDark ? '#3d2e1e' : '#e8d5b0';
+  const input = isDark ? '#3d2e1e' : '#fff';
 
   useEffect(() => {
-    const saved = localStorage.getItem('mirror-diary-entries')
-    if (saved) setEntries(JSON.parse(saved))
-  }, [])
+    const saved = localStorage.getItem('mirror-diary-entries');
+    if (saved) setEntries(JSON.parse(saved));
+  }, []);
 
-  const bg = isDark ? '#1a1a2e' : '#faf7f2'
-  const card = isDark ? '#16213e' : '#ffffff'
-  const text = isDark ? '#e8d5b7' : '#3d2b1f'
-  const sub = isDark ? '#a89070' : '#8b7355'
-  const border = isDark ? '#2a2a4a' : '#e8ddd0'
-
-  const goNext = () => {
-    if (animating) return
-    setDirection('next')
-    setAnimating(true)
-    setTimeout(() => {
-      setCurrentSection(prev => prev + 1)
-      setAnimating(false)
-    }, 300)
-  }
-
-  const goPrev = () => {
-    if (animating) return
-    setDirection('prev')
-    setAnimating(true)
-    setTimeout(() => {
-      setCurrentSection(prev => prev - 1)
-      setAnimating(false)
-    }, 300)
-  }
-
-  const startNew = () => {
-    setMood('')
-    setMoodColor('')
-    setSections({})
-    setCurrentSection(0)
-    setShowMoodPicker(true)
-    setView('new')
-  }
-
-  const saveEntry = () => {
-    const entry: DiaryEntry = {
+  const save = () => {
+    let content = text;
+    if (mode === 'day') content = DAY_QUESTIONS.map((q, i) => `${q.emoji} ${q.q}\n${dayAnswers[i]}`).join('\n\n');
+    if (mode === 'six') content = SIX_QUESTIONS.map((q, i) => `${q.emoji} ${q.q}\n${sixAnswers[i]}`).join('\n\n');
+    if (!content.trim() && !mood) return;
+    const entry: Entry = {
       id: Date.now().toString(),
-      date: getDateStr(),
-      mood,
-      moodColor,
-      sections,
-      timestamp: Date.now()
-    }
-    const updated = [entry, ...entries]
-    setEntries(updated)
-    localStorage.setItem('mirror-diary-entries', JSON.stringify(updated))
-    setSelectedEntry(entry)
-    setView('detail')
-  }
+      date: new Date().toLocaleDateString('ru-RU', { day: 'numeric', month: 'long', year: 'numeric' }),
+      mood, moodEmoji, text: content, tags,
+      mode: mode === 'free' ? 'Свободный поток' : mode === 'day' ? 'Страница дня' : 'Шесть вопросов',
+    };
+    const updated = [entry, ...entries];
+    setEntries(updated);
+    localStorage.setItem('mirror-diary-entries', JSON.stringify(updated));
+    setText(''); setMood(''); setMoodEmoji(''); setTags([]);
+    setDayAnswers(['', '', '', '']); setSixAnswers(['', '', '', '', '', '']);
+    setShowSaved(true);
+    setTimeout(() => setShowSaved(false), 3000);
+  };
 
-  const deleteEntry = (id: string) => {
-    const updated = entries.filter(e => e.id !== id)
-    setEntries(updated)
-    localStorage.setItem('mirror-diary-entries', JSON.stringify(updated))
-  }
+  const del = (id: string) => {
+    const updated = entries.filter(e => e.id !== id);
+    setEntries(updated);
+    localStorage.setItem('mirror-diary-entries', JSON.stringify(updated));
+  };
 
-  const filledSections = SECTIONS.filter(s => sections[s.id]?.trim()).length
-  const progress = filledSections / SECTIONS.length
+  const filtered = entries.filter(e => {
+    const matchSearch = !search || e.text.toLowerCase().includes(search.toLowerCase());
+    const matchTag = !filterTag || e.tags.includes(filterTag);
+    return matchSearch && matchTag;
+  });
 
-  // DETAIL VIEW
-  if (view === 'detail' && selectedEntry) {
-    return (
-      <div style={{ minHeight: '100vh', background: bg, paddingBottom: '6rem' }}>
-        <div style={{ padding: '1.5rem 1.5rem 0' }}>
-          <button onClick={() => setView('list')} style={{ color: sub, fontFamily: 'Raleway', fontSize: '0.9rem', background: 'none', border: 'none', cursor: 'pointer', marginBottom: '1rem' }}>
-            ← Назад
-          </button>
-          <div style={{ textAlign: 'center', marginBottom: '2rem' }}>
-            <div style={{ fontSize: '3rem', marginBottom: '0.5rem' }}>{selectedEntry.mood}</div>
-            <div style={{ fontFamily: 'Cormorant Garamond', fontSize: '1.8rem', color: text }}>{selectedEntry.date}</div>
-          </div>
-          {SECTIONS.map(s => selectedEntry.sections[s.id] && (
-            <div key={s.id} style={{ background: card, borderRadius: '1rem', padding: '1.5rem', marginBottom: '1rem', borderLeft: `4px solid ${s.color}` }}>
-              <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', marginBottom: '0.75rem' }}>
-                <span style={{ fontSize: '1.2rem' }}>{s.icon}</span>
-                <span style={{ fontFamily: 'Cormorant Garamond', fontSize: '1.1rem', color: s.color }}>{s.question}</span>
-              </div>
-              <p style={{ fontFamily: 'Raleway', color: text, lineHeight: 1.7, margin: 0 }}>{selectedEntry.sections[s.id]}</p>
-            </div>
+  return (
+    <div style={{ minHeight: '100vh', background: bg, padding: '1.5rem 1rem 6rem', fontFamily: 'Raleway, sans-serif' }}>
+      {/* Header */}
+      <div style={{ textAlign: 'center', marginBottom: '1.5rem' }}>
+        <div style={{ fontSize: '2rem' }}>📖</div>
+        <h1 style={{ fontFamily: 'Cormorant Garamond, serif', fontSize: '2rem', color: text2, margin: '0.3rem 0' }}>Дневник</h1>
+        <p style={{ color: soft, fontSize: '0.85rem' }}>
+          {new Date().toLocaleDateString('ru-RU', { weekday: 'long', day: 'numeric', month: 'long' })}
+        </p>
+      </div>
+
+      {/* Mood */}
+      <div style={{ background: card, border: `1px solid ${border}`, borderRadius: '16px', padding: '1rem', marginBottom: '1rem' }}>
+        <p style={{ color: soft, fontSize: '0.8rem', marginBottom: '0.75rem', textAlign: 'center' }}>Как ты себя сейчас чувствуешь?</p>
+        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: '0.5rem' }}>
+          {MOODS.map(m => (
+            <button key={m.label} onClick={() => { setMood(m.label); setMoodEmoji(m.emoji); }} style={{
+              background: mood === m.label ? m.color + '30' : 'transparent',
+              border: `2px solid ${mood === m.label ? m.color : 'transparent'}`,
+              borderRadius: '12px', padding: '0.5rem 0.25rem', cursor: 'pointer',
+              display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '0.2rem',
+              transition: 'all 0.2s ease',
+            }}>
+              <span style={{ fontSize: '1.5rem' }}>{m.emoji}</span>
+              <span style={{ fontSize: '0.65rem', color: text2 }}>{m.label}</span>
+            </button>
           ))}
         </div>
       </div>
-    )
-  }
 
-  // NEW ENTRY VIEW
-  if (view === 'new') {
-    const section = SECTIONS[currentSection]
+      {/* Mode */}
+      <div style={{ display: 'flex', gap: '0.5rem', marginBottom: '1rem', overflowX: 'auto' }}>
+        {MODES.map(m => (
+          <button key={m.id} onClick={() => setMode(m.id)} style={{
+            background: mode === m.id ? '#b8860b' : card,
+            color: mode === m.id ? '#fff' : soft,
+            border: `1px solid ${mode === m.id ? '#b8860b' : border}`,
+            borderRadius: '20px', padding: '0.4rem 0.75rem',
+            cursor: 'pointer', whiteSpace: 'nowrap', fontSize: '0.8rem',
+            transition: 'all 0.2s ease',
+          }}>
+            {m.label}
+          </button>
+        ))}
+      </div>
 
-    return (
-      <div style={{ minHeight: '100vh', background: bg, paddingBottom: '6rem' }}>
-        {/* Header */}
-        <div style={{ padding: '1.5rem', borderBottom: `1px solid ${border}` }}>
-          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-            <button onClick={() => setView('list')} style={{ color: sub, fontFamily: 'Raleway', fontSize: '0.9rem', background: 'none', border: 'none', cursor: 'pointer' }}>
-              ← Отмена
-            </button>
-            <div style={{ textAlign: 'center' }}>
-              <div style={{ fontFamily: 'Cormorant Garamond', fontSize: '1.2rem', color: text }}>{getDayName()}</div>
-              <div style={{ fontFamily: 'Raleway', fontSize: '0.75rem', color: sub }}>{getSeason()}</div>
-            </div>
-            {filledSections > 0 && (
-              <button onClick={saveEntry} style={{ color: '#c9a96e', fontFamily: 'Raleway', fontSize: '0.9rem', background: 'none', border: 'none', cursor: 'pointer', fontWeight: 600 }}>
-                Сохранить
-              </button>
-            )}
-            {filledSections === 0 && <div style={{ width: '4rem' }} />}
+      {/* Input area */}
+      <div style={{ background: card, border: `1px solid ${border}`, borderRadius: '16px', padding: '1rem', marginBottom: '1rem' }}>
+        {mode === 'free' && (
+          <textarea value={text} onChange={e => setText(e.target.value)}
+            placeholder="Что у тебя на душе сегодня?..."
+            style={{ width: '100%', minHeight: '150px', background: 'transparent', border: 'none', outline: 'none', color: text2, fontFamily: 'Cormorant Garamond, serif', fontSize: '1.1rem', resize: 'none', lineHeight: 1.6 }} />
+        )}
+        {mode === 'day' && DAY_QUESTIONS.map((q, i) => (
+          <div key={i} style={{ marginBottom: '1rem' }}>
+            <p style={{ color: soft, fontSize: '0.85rem', marginBottom: '0.4rem' }}>{q.emoji} {q.q}</p>
+            <textarea value={dayAnswers[i]} onChange={e => { const a = [...dayAnswers]; a[i] = e.target.value; setDayAnswers(a); }}
+              placeholder="Напиши здесь..."
+              style={{ width: '100%', minHeight: '70px', background: input, border: `1px solid ${border}`, borderRadius: '8px', padding: '0.5rem', outline: 'none', color: text2, fontFamily: 'Cormorant Garamond, serif', fontSize: '1rem', resize: 'none' }} />
           </div>
+        ))}
+        {mode === 'six' && SIX_QUESTIONS.map((q, i) => (
+          <div key={i} style={{ marginBottom: '1rem' }}>
+            <p style={{ color: soft, fontSize: '0.85rem', marginBottom: '0.2rem' }}>{q.emoji} {q.q}</p>
+            <p style={{ color: soft, fontSize: '0.75rem', fontStyle: 'italic', marginBottom: '0.4rem' }}>{q.hint}</p>
+            <textarea value={sixAnswers[i]} onChange={e => { const a = [...sixAnswers]; a[i] = e.target.value; setSixAnswers(a); }}
+              placeholder="..."
+              style={{ width: '100%', minHeight: '70px', background: input, border: `1px solid ${border}`, borderRadius: '8px', padding: '0.5rem', outline: 'none', color: text2, fontFamily: 'Cormorant Garamond, serif', fontSize: '1rem', resize: 'none' }} />
+          </div>
+        ))}
+      </div>
 
-          {/* Progress */}
-          {!showMoodPicker && (
-            <div style={{ marginTop: '1rem' }}>
-              <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '0.5rem' }}>
-                {SECTIONS.map((s, i) => (
-                  <button key={s.id} onClick={() => {
-                    setDirection(i > currentSection ? 'next' : 'prev')
-                    setCurrentSection(i)
-                  }} style={{
-                    width: '2.5rem', height: '2.5rem', borderRadius: '50%', border: `2px solid ${i === currentSection ? s.color : border}`,
-                    background: sections[s.id]?.trim() ? s.color : (i === currentSection ? `${s.color}20` : 'transparent'),
-                    cursor: 'pointer', fontSize: '1rem', transition: 'all 0.3s'
-                  }}>
-                    {s.icon}
-                  </button>
+      {/* Tags */}
+      <div style={{ marginBottom: '1rem' }}>
+        <p style={{ color: soft, fontSize: '0.8rem', marginBottom: '0.5rem' }}>Теги:</p>
+        <div style={{ display: 'flex', flexWrap: 'wrap', gap: '0.4rem' }}>
+          {TAGS.map(t => (
+            <button key={t} onClick={() => setTags(tags.includes(t) ? tags.filter(x => x !== t) : [...tags, t])} style={{
+              background: tags.includes(t) ? '#b8860b' : card,
+              color: tags.includes(t) ? '#fff' : soft,
+              border: `1px solid ${tags.includes(t) ? '#b8860b' : border}`,
+              borderRadius: '20px', padding: '0.3rem 0.6rem', fontSize: '0.75rem', cursor: 'pointer',
+              transition: 'all 0.2s ease',
+            }}>{t}</button>
+          ))}
+        </div>
+      </div>
+
+      {/* Save */}
+      <button onClick={save} style={{
+        width: '100%', padding: '0.9rem', background: 'linear-gradient(135deg, #b8860b, #d4a017)',
+        color: '#fff', border: 'none', borderRadius: '12px', fontSize: '1rem',
+        fontFamily: 'Raleway, sans-serif', cursor: 'pointer', marginBottom: '1.5rem',
+        transition: 'all 0.2s ease',
+      }}>Сохранить запись ✓</button>
+
+      {showSaved && (
+        <div style={{
+          position: 'fixed', top: '50%', left: '50%', transform: 'translate(-50%,-50%)',
+          background: card, border: `1px solid ${border}`, borderRadius: '20px',
+          padding: '2rem', textAlign: 'center', zIndex: 200, maxWidth: '300px',
+          boxShadow: '0 20px 60px rgba(0,0,0,0.3)',
+        }}>
+          <div style={{ fontSize: '2.5rem', marginBottom: '1rem' }}>🪞</div>
+          <p style={{ fontFamily: 'Cormorant Garamond, serif', fontSize: '1.2rem', color: text2, marginBottom: '1rem' }}>
+            Ты только что подарил себе минуту честности.
+          </p>
+          <button onClick={() => setShowSaved(false)} style={{
+            background: 'linear-gradient(135deg, #b8860b, #d4a017)', color: '#fff',
+            border: 'none', borderRadius: '10px', padding: '0.6rem 1.5rem', cursor: 'pointer',
+          }}>Благодарю</button>
+        </div>
+      )}
+
+      {/* History */}
+      <div style={{ marginTop: '1.5rem' }}>
+        <div style={{ display: 'flex', gap: '0.5rem', marginBottom: '1rem' }}>
+          <input value={search} onChange={e => setSearch(e.target.value)} placeholder="Поиск по записям..."
+            style={{ flex: 1, background: input, border: `1px solid ${border}`, borderRadius: '10px', padding: '0.5rem 0.75rem', color: text2, fontFamily: 'Raleway, sans-serif', outline: 'none' }} />
+        </div>
+        <div style={{ display: 'flex', flexWrap: 'wrap', gap: '0.4rem', marginBottom: '1rem' }}>
+          <button onClick={() => setFilterTag('')} style={{
+            background: !filterTag ? '#b8860b' : card, color: !filterTag ? '#fff' : soft,
+            border: `1px solid ${!filterTag ? '#b8860b' : border}`, borderRadius: '20px',
+            padding: '0.3rem 0.6rem', fontSize: '0.75rem', cursor: 'pointer',
+          }}>Все</button>
+          {TAGS.map(t => (
+            <button key={t} onClick={() => setFilterTag(filterTag === t ? '' : t)} style={{
+              background: filterTag === t ? '#b8860b' : card,
+              color: filterTag === t ? '#fff' : soft,
+              border: `1px solid ${filterTag === t ? '#b8860b' : border}`,
+              borderRadius: '20px', padding: '0.3rem 0.6rem', fontSize: '0.75rem', cursor: 'pointer',
+            }}>{t}</button>
+          ))}
+        </div>
+
+        {filtered.length === 0 ? (
+          <div style={{ textAlign: 'center', padding: '2rem', color: soft }}>
+            <div style={{ fontSize: '2rem', marginBottom: '0.5rem' }}>📖</div>
+            <p style={{ fontFamily: 'Cormorant Garamond, serif', fontSize: '1.1rem' }}>Здесь будут жить твои мысли.</p>
+            <p style={{ fontSize: '0.85rem' }}>Начни с первой записи.</p>
+          </div>
+        ) : filtered.map(e => (
+          <div key={e.id} onClick={() => setViewEntry(e)} style={{
+            background: card, border: `1px solid ${border}`, borderRadius: '14px',
+            padding: '1rem', marginBottom: '0.75rem', cursor: 'pointer',
+            transition: 'all 0.2s ease',
+          }}
+            onMouseEnter={el => (el.currentTarget as HTMLElement).style.transform = 'translateY(-2px)'}
+            onMouseLeave={el => (el.currentTarget as HTMLElement).style.transform = 'translateY(0)'}
+          >
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '0.5rem' }}>
+              <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
+                <span style={{ fontSize: '1.2rem' }}>{e.moodEmoji}</span>
+                <span style={{ color: soft, fontSize: '0.8rem' }}>{e.date}</span>
+              </div>
+              <button onClick={ev => { ev.stopPropagation(); del(e.id); }} style={{
+                background: 'none', border: 'none', color: soft, cursor: 'pointer', fontSize: '1rem',
+              }}>×</button>
+            </div>
+            <p style={{ color: text2, fontSize: '0.9rem', margin: 0, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+              {e.text}
+            </p>
+            {e.tags.length > 0 && (
+              <div style={{ display: 'flex', gap: '0.3rem', marginTop: '0.5rem', flexWrap: 'wrap' }}>
+                {e.tags.map(t => (
+                  <span key={t} style={{ background: '#b8860b20', color: '#b8860b', borderRadius: '10px', padding: '0.2rem 0.4rem', fontSize: '0.7rem' }}>{t}</span>
                 ))}
               </div>
-              <div style={{ height: '3px', background: border, borderRadius: '2px' }}>
-                <div style={{ height: '100%', background: 'linear-gradient(90deg, #c9a96e, #d4af85)', borderRadius: '2px', width: `${progress * 100}%`, transition: 'width 0.5s ease' }} />
-              </div>
-            </div>
-          )}
-        </div>
-
-        {/* Mood Picker */}
-        {showMoodPicker && (
-          <div style={{ padding: '2rem 1.5rem', animation: 'fadeIn 0.4s ease' }}>
-            <div style={{ textAlign: 'center', marginBottom: '2rem' }}>
-              <div style={{ fontFamily: 'Cormorant Garamond', fontSize: '2rem', color: text, marginBottom: '0.5rem' }}>
-                Как ты себя сейчас чувствуешь?
-              </div>
-              <div style={{ fontFamily: 'Raleway', fontSize: '0.9rem', color: sub }}>{getDateStr()}</div>
-            </div>
-            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: '0.75rem' }}>
-              {MOODS.map(m => (
-                <button key={m.label} onClick={() => {
-                  setMood(m.emoji)
-                  setMoodColor(m.color)
-                  setTimeout(() => setShowMoodPicker(false), 300)
-                }} style={{
-                  background: mood === m.emoji ? `${m.color}30` : card,
-                  border: `2px solid ${mood === m.emoji ? m.color : border}`,
-                  borderRadius: '1rem', padding: '1rem 0.5rem', cursor: 'pointer',
-                  transition: 'all 0.3s', transform: mood === m.emoji ? 'scale(1.05)' : 'scale(1)'
-                }}>
-                  <div style={{ fontSize: '2rem', marginBottom: '0.25rem' }}>{m.emoji}</div>
-                  <div style={{ fontFamily: 'Raleway', fontSize: '0.7rem', color: sub }}>{m.label}</div>
-                </button>
-              ))}
-            </div>
-            {mood && (
-              <button onClick={() => setShowMoodPicker(false)} style={{
-                width: '100%', marginTop: '1.5rem', padding: '1rem',
-                background: 'linear-gradient(135deg, #c9a96e, #d4af85)',
-                color: '#fff', border: 'none', borderRadius: '1rem',
-                fontFamily: 'Raleway', fontSize: '1rem', cursor: 'pointer', fontWeight: 600
-              }}>
-                Далее →
-              </button>
             )}
           </div>
-        )}
-
-        {/* Section */}
-        {!showMoodPicker && (
-          <div style={{
-            padding: '2rem 1.5rem',
-            opacity: animating ? 0 : 1,
-            transform: animating ? (direction === 'next' ? 'translateX(30px)' : 'translateX(-30px)') : 'translateX(0)',
-            transition: 'all 0.3s ease'
-          }}>
-            {/* Section Header */}
-            <div style={{ textAlign: 'center', marginBottom: '2rem' }}>
-              <div style={{
-                width: '4rem', height: '4rem', borderRadius: '50%', margin: '0 auto 1rem',
-                background: `${section.color}20`, display: 'flex', alignItems: 'center', justifyContent: 'center',
-                fontSize: '1.8rem', border: `2px solid ${section.color}40`
-              }}>
-                {section.icon}
-              </div>
-              <div style={{ fontFamily: 'Cormorant Garamond', fontSize: '1.8rem', color: text, lineHeight: 1.3 }}>
-                {section.question}
-              </div>
-            </div>
-
-            {/* Text Area */}
-            <div style={{
-              background: card, borderRadius: '1.5rem', padding: '1.5rem',
-              border: `2px solid ${sections[section.id]?.trim() ? section.color : border}`,
-              transition: 'border-color 0.3s', boxShadow: '0 4px 20px rgba(0,0,0,0.08)'
-            }}>
-              <textarea
-                value={sections[section.id] || ''}
-                onChange={e => setSections(prev => ({ ...prev, [section.id]: e.target.value }))}
-                placeholder={section.placeholder}
-                rows={6}
-                style={{
-                  width: '100%', background: 'transparent', border: 'none', outline: 'none', resize: 'none',
-                  fontFamily: 'Raleway', fontSize: '1rem', color: text, lineHeight: 1.8
-                }}
-              />
-              {sections[section.id] && (
-                <div style={{ textAlign: 'right', fontFamily: 'Raleway', fontSize: '0.75rem', color: sub, marginTop: '0.5rem' }}>
-                  {sections[section.id].split(' ').filter(Boolean).length} слов
-                </div>
-              )}
-            </div>
-
-            {/* Navigation */}
-            <div style={{ display: 'flex', gap: '1rem', marginTop: '1.5rem' }}>
-              {currentSection > 0 && (
-                <button onClick={goPrev} style={{
-                  flex: 1, padding: '1rem', background: card, border: `1px solid ${border}`,
-                  borderRadius: '1rem', fontFamily: 'Raleway', color: sub, cursor: 'pointer', fontSize: '1rem'
-                }}>
-                  ← Назад
-                </button>
-              )}
-              {currentSection < SECTIONS.length - 1 ? (
-                <button onClick={goNext} style={{
-                  flex: 2, padding: '1rem',
-                  background: `linear-gradient(135deg, ${section.color}, ${section.color}cc)`,
-                  border: 'none', borderRadius: '1rem', fontFamily: 'Raleway',
-                  color: '#fff', cursor: 'pointer', fontSize: '1rem', fontWeight: 600
-                }}>
-                  Следующий вопрос →
-                </button>
-              ) : (
-                <button onClick={saveEntry} style={{
-                  flex: 2, padding: '1rem',
-                  background: 'linear-gradient(135deg, #c9a96e, #d4af85)',
-                  border: 'none', borderRadius: '1rem', fontFamily: 'Raleway',
-                  color: '#fff', cursor: 'pointer', fontSize: '1rem', fontWeight: 600
-                }}>
-                  Сохранить страницу ✓
-                </button>
-              )}
-            </div>
-
-            {/* Skip */}
-            <button onClick={currentSection < SECTIONS.length - 1 ? goNext : saveEntry} style={{
-              width: '100%', marginTop: '0.75rem', padding: '0.5rem',
-              background: 'none', border: 'none', fontFamily: 'Raleway',
-              fontSize: '0.85rem', color: sub, cursor: 'pointer'
-            }}>
-              {currentSection < SECTIONS.length - 1 ? 'Пропустить этот вопрос' : 'Завершить без этого ответа'}
-            </button>
-          </div>
-        )}
+        ))}
       </div>
-    )
-  }
 
-  // LIST VIEW
-  return (
-    <div style={{ minHeight: '100vh', background: bg, paddingBottom: '6rem' }}>
-      <div style={{ padding: '1.5rem' }}>
-        {/* Header */}
-        <div style={{ textAlign: 'center', marginBottom: '2rem' }}>
-          <div style={{ fontSize: '2rem', marginBottom: '0.5rem' }}>📖</div>
-          <h1 style={{ fontFamily: 'Cormorant Garamond', fontSize: '2.5rem', color: text, margin: '0 0 0.25rem' }}>Дневник</h1>
-          <p style={{ fontFamily: 'Raleway', fontSize: '0.9rem', color: sub, margin: 0 }}>Страницы твоей жизни</p>
-        </div>
-
-        {/* New Entry Button */}
-        <button onClick={startNew} style={{
-          width: '100%', padding: '1.25rem',
-          background: 'linear-gradient(135deg, #c9a96e, #d4af85)',
-          border: 'none', borderRadius: '1.25rem', cursor: 'pointer',
-          marginBottom: '2rem', boxShadow: '0 4px 20px rgba(201,169,110,0.3)'
+      {/* View modal */}
+      {viewEntry && (
+        <div onClick={() => setViewEntry(null)} style={{
+          position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.5)', zIndex: 200,
+          display: 'flex', alignItems: 'center', justifyContent: 'center', padding: '1rem',
         }}>
-          <div style={{ fontFamily: 'Cormorant Garamond', fontSize: '1.4rem', color: '#fff', marginBottom: '0.25rem' }}>
-            + Новая страница
-          </div>
-          <div style={{ fontFamily: 'Raleway', fontSize: '0.8rem', color: 'rgba(255,255,255,0.8)' }}>
-            {getDayName()}, {getDateStr()}
-          </div>
-        </button>
-
-        {/* Entries */}
-        {entries.length === 0 ? (
-          <div style={{ textAlign: 'center', padding: '3rem 1rem' }}>
-            <div style={{ fontSize: '3rem', marginBottom: '1rem' }}>📖</div>
-            <div style={{ fontFamily: 'Cormorant Garamond', fontSize: '1.5rem', color: text, marginBottom: '0.5rem' }}>
-              Здесь будут жить твои страницы
+          <div onClick={e => e.stopPropagation()} style={{
+            background: bg, border: `1px solid ${border}`, borderRadius: '20px',
+            padding: '1.5rem', maxWidth: '500px', width: '100%', maxHeight: '80vh', overflowY: 'auto',
+          }}>
+            <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '1rem' }}>
+              <div>
+                <p style={{ color: soft, fontSize: '0.8rem' }}>{viewEntry.date}</p>
+                <p style={{ color: text2, fontSize: '1rem' }}>{viewEntry.moodEmoji} {viewEntry.mood}</p>
+              </div>
+              <button onClick={() => setViewEntry(null)} style={{ background: 'none', border: 'none', color: soft, fontSize: '1.5rem', cursor: 'pointer' }}>×</button>
             </div>
-            <div style={{ fontFamily: 'Raleway', fontSize: '0.9rem', color: sub, lineHeight: 1.6 }}>
-              Каждая запись — момент твоей жизни.<br />Начни с первой страницы.
-            </div>
+            <p style={{ fontFamily: 'Cormorant Garamond, serif', fontSize: '1.1rem', color: text2, lineHeight: 1.7, whiteSpace: 'pre-wrap' }}>{viewEntry.text}</p>
           </div>
-        ) : (
-          <div>
-            <div style={{ fontFamily: 'Cormorant Garamond', fontSize: '1.3rem', color: text, marginBottom: '1rem' }}>
-              {entries.length} {entries.length === 1 ? 'страница' : entries.length < 5 ? 'страницы' : 'страниц'}
-            </div>
-            {entries.map((entry, i) => {
-              const filled = SECTIONS.filter(s => entry.sections[s.id]?.trim())
-              return (
-                <div key={entry.id} onClick={() => { setSelectedEntry(entry); setView('detail') }} style={{
-                  background: card, borderRadius: '1.25rem', padding: '1.25rem',
-                  marginBottom: '1rem', cursor: 'pointer', border: `1px solid ${border}`,
-                  transition: 'all 0.3s', boxShadow: '0 2px 10px rgba(0,0,0,0.05)',
-                  animation: `fadeIn 0.4s ease ${i * 0.05}s both`
-                }}>
-                  <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start' }}>
-                    <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem', flex: 1 }}>
-                      <div style={{
-                        width: '3rem', height: '3rem', borderRadius: '50%',
-                        background: entry.moodColor ? `${entry.moodColor}20` : '#c9a96e20',
-                        border: `2px solid ${entry.moodColor || '#c9a96e'}40`,
-                        display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '1.4rem'
-                      }}>
-                        {entry.mood || '📖'}
-                      </div>
-                      <div>
-                        <div style={{ fontFamily: 'Cormorant Garamond', fontSize: '1.1rem', color: text }}>{entry.date}</div>
-                        <div style={{ display: 'flex', gap: '0.25rem', marginTop: '0.25rem' }}>
-                          {filled.map(s => (
-                            <span key={s.id} style={{ fontSize: '0.8rem' }}>{s.icon}</span>
-                          ))}
-                        </div>
-                      </div>
-                    </div>
-                    <button onClick={e => { e.stopPropagation(); deleteEntry(entry.id) }} style={{
-                      background: 'none', border: 'none', color: sub, cursor: 'pointer', fontSize: '1rem', padding: '0.25rem'
-                    }}>×</button>
-                  </div>
-                  {filled[0] && (
-                    <div style={{
-                      marginTop: '0.75rem', fontFamily: 'Raleway', fontSize: '0.85rem', color: sub,
-                      lineHeight: 1.5, overflow: 'hidden', display: '-webkit-box',
-                      WebkitLineClamp: 2, WebkitBoxOrient: 'vertical'
-                    }}>
-                      {entry.sections[filled[0].id]}
-                    </div>
-                  )}
-                </div>
-              )
-            })}
-          </div>
-        )}
-      </div>
+        </div>
+      )}
     </div>
-  )
+  );
 }

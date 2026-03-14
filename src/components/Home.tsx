@@ -1,228 +1,119 @@
-import { useState, useEffect } from 'react';
 import { useTheme } from '../context/ThemeContext';
+import { useSeason } from '../context/SeasonContext';
+import { Section } from '../App';
 import DailyQuote from './DailyQuote';
 import Stats from './Stats';
 import WeekWidget from './WeekWidget';
 
-type Section = 'home' | 'diary' | 'workshop' | 'gratitude' | 'mood' | 'sage' | 'settings' | 'compass' | 'mirror';
+interface Props { onNavigate: (s: Section) => void; }
 
-interface HomeProps {
-  onNavigate: (section: Section) => void;
-}
-
-const books = [
-  { id: 'diary' as Section, emoji: '📖', label: 'Дневник', color: '#8B4513' },
-  { id: 'workshop' as Section, emoji: '🛠️', label: 'Мастерская', color: '#5B6B4A' },
-  { id: 'gratitude' as Section, emoji: '🙏', label: 'Благодарность', color: '#9B6B3D' },
-  { id: 'mood' as Section, emoji: '🌡️', label: 'Состояние', color: '#6B4A5B' },
-  { id: 'compass' as Section, emoji: '🧭', label: 'Компас', color: '#4A6B6B' },
-  { id: 'mirror' as Section, emoji: '🔮', label: 'Зеркало', color: '#4A4A6B' },
-  { id: 'sage' as Section, emoji: '💬', label: 'Мудрец', color: '#6B5B4A' },
+const WARM_PHRASES = [
+  'Рад что ты здесь.', 'Новый день — новая страница.', 'Ты пришёл. Это уже важно.',
+  'Каждый момент — возможность.', 'Дыши. Ты справляешься.', 'Сегодня хороший день чтобы быть собой.',
+  'Маленькие шаги тоже считаются.', 'Ты делаешь лучшее что можешь.', 'Сегодня достаточно — быть здесь.',
+  'Твои чувства важны.', 'Пауза — тоже движение.', 'Ты заслуживаешь доброты — особенно от себя.',
+  'Что-то хорошее уже есть в этом дне.', 'Зеркало ждало тебя.',
 ];
 
-const dailyGreetings = [
-  'Рад что ты здесь',
-  'Новый день — новая страница',
-  'Ты пришёл. Это уже важно',
-  'Сегодня хороший день чтобы быть собой',
-  'Каждый день — это шанс',
-  'Ты на своём месте',
-  'Просто дыши. Ты здесь',
-  'Мир подождёт. Побудь с собой',
-  'Тихий момент только для тебя',
-  'Всё начинается с паузы',
-  'Ты уже делаешь достаточно',
-  'Сегодня ты выбрал себя',
-  'Позволь себе просто быть',
-  'Этот момент — твой',
+const NIGHT_PHRASES = [
+  'Тихий вечер. Хорошее время побыть с собой.', 'Ночь — время честности с собой.',
+  'День прожит. Ты справился.', 'Тишина вечера — пространство для себя.',
 ];
 
-const nightGreetings = [
-  'Тихий вечер. Хорошее время побыть с собой',
-  'Ночь — время честности с собой',
-  'День заканчивается. Ты справился',
-  'Тишина. Самое время для себя',
-];
-
-const seasonQuotes: Record<string, string> = {
-  spring: '🌸 Весна — это напоминание о том, что после любой зимы приходит обновление',
-  summer: '☀️ Лето напоминает нам — жизнь создана для того, чтобы её проживать',
-  autumn: '🍂 Осень учит нас красиво отпускать то, что уже не нужно',
-  winter: '❄️ Зима — время тишины, в которой слышно самое важное',
+const SEASON_QUOTES: Record<string, string> = {
+  spring: '🌸 Весна — напоминание что после любой зимы приходит обновление',
+  summer: '☀️ Лето напоминает нам — жизнь создана чтобы её проживать',
+  autumn: '🍂 Осень учит нас отпускать с достоинством',
+  winter: '❄️ Зима — время тишины в которой слышно самое важное',
 };
 
-function getSeason(): string {
-  const month = new Date().getMonth();
-  if (month >= 2 && month <= 4) return 'spring';
-  if (month >= 5 && month <= 7) return 'summer';
-  if (month >= 8 && month <= 10) return 'autumn';
-  return 'winter';
-}
+const books: { id: Section; emoji: string; title: string; color: string }[] = [
+  { id: 'diary', emoji: '📖', title: 'Дневник', color: '#8B7355' },
+  { id: 'gratitude', emoji: '🙏', title: 'Благодарность', color: '#7A8B6F' },
+  { id: 'mood', emoji: '🌡️', title: 'Состояние', color: '#8B7082' },
+  { id: 'workshop', emoji: '🛠️', title: 'Мастерская', color: '#7B8B6F' },
+  { id: 'compass', emoji: '🧭', title: 'Компас', color: '#6B7B8B' },
+  { id: 'mirror', emoji: '🔮', title: 'Зеркало', color: '#4B5B7B' },
+  { id: 'sage', emoji: '💬', title: 'Мудрец', color: '#8B6B4B' },
+];
 
-function getGreeting(name: string): { greeting: string; subGreeting: string } {
-  const hour = new Date().getHours();
-  const day = new Date().getDate();
-  
-  let greeting = '';
-  if (hour >= 5 && hour < 12) greeting = `Доброе утро, ${name}`;
-  else if (hour >= 12 && hour < 18) greeting = `Добрый день, ${name}`;
-  else if (hour >= 18 && hour < 23) greeting = `Добрый вечер, ${name}`;
-  else greeting = `Доброй ночи, ${name}`;
-
-  const isNight = hour >= 23 || hour < 5;
-  const subGreeting = isNight
-    ? nightGreetings[day % nightGreetings.length]
-    : dailyGreetings[day % dailyGreetings.length];
-
-  return { greeting, subGreeting };
-}
-
-export default function Home({ onNavigate }: HomeProps) {
+export default function Home({ onNavigate }: Props) {
   const { isDark } = useTheme();
-  const [name, setName] = useState('');
-  const season = getSeason();
+  const { season } = useSeason();
+  const hour = new Date().getHours();
+  const isNight = hour >= 23 || hour < 5;
 
-  useEffect(() => {
-    const saved = localStorage.getItem('mirror_user_name');
-    if (saved) setName(saved);
-  }, []);
+  const name = localStorage.getItem('mirror-user-name') || '';
+  const lastVisit = localStorage.getItem('mirror-last-visit');
+  const today = new Date().toDateString();
+  const daysSince = lastVisit ? Math.floor((Date.now() - parseInt(lastVisit)) / 86400000) : 0;
+  localStorage.setItem('mirror-last-visit', Date.now().toString());
 
-  const { greeting, subGreeting } = getGreeting(name || 'друг');
+  const greeting = hour >= 5 && hour < 12 ? 'Доброе утро' : hour >= 12 && hour < 18 ? 'Добрый день' : hour >= 18 && hour < 23 ? 'Добрый вечер' : 'Доброй ночи';
+  const phrase = isNight ? NIGHT_PHRASES[new Date().getDay() % NIGHT_PHRASES.length] : WARM_PHRASES[new Date().getDate() % WARM_PHRASES.length];
+
+  const bg = isDark ? '#1a1410' : '#fdf6ec';
+  const text = isDark ? '#e8d5b0' : '#5c4a2a';
+  const soft = isDark ? '#a89070' : '#8a7560';
+  const card = isDark ? '#2d2218' : '#fff9f0';
+  const border = isDark ? '#3d2e1e' : '#e8d5b0';
 
   return (
-    <div style={{ padding: '1.5rem 1rem 6rem', maxWidth: '600px', margin: '0 auto' }}>
-      {/* Приветствие */}
-      <div style={{ textAlign: 'center', marginBottom: '1.5rem', marginTop: '2.5rem' }}>
-        <h1 style={{
-          fontFamily: 'Cormorant Garamond, serif',
-          fontSize: '1.8rem',
-          fontWeight: 600,
-          color: isDark ? '#e8d5b7' : '#2c2416',
-          marginBottom: '0.5rem',
-        }}>
-          {greeting}
+    <div style={{ minHeight: '100vh', background: bg, padding: '1.5rem 1rem 6rem', fontFamily: 'Raleway, sans-serif' }}>
+      {/* Greeting */}
+      <div style={{ textAlign: 'center', marginBottom: '1.5rem' }}>
+        {daysSince >= 2 && (
+          <p style={{ color: '#b8860b', fontSize: '0.85rem', marginBottom: '0.5rem', fontStyle: 'italic' }}>
+            {daysSince === 2 ? 'Вчера тебя не было. Рад что ты вернулся.' : `${daysSince} дня прошло. Ты снова здесь — и это важно.`}
+          </p>
+        )}
+        <h1 style={{ fontFamily: 'Cormorant Garamond, serif', fontSize: '2rem', color: text, margin: 0 }}>
+          {greeting}{name ? `, ${name}` : ''}
         </h1>
-        <p style={{
-          fontFamily: 'Raleway, sans-serif',
-          fontSize: '0.9rem',
-          color: isDark ? '#a89070' : '#8B7355',
-          fontStyle: 'italic',
-        }}>
-          {subGreeting}
-        </p>
+        <p style={{ color: soft, fontSize: '0.9rem', marginTop: '0.3rem', fontStyle: 'italic' }}>{phrase}</p>
       </div>
 
-      {/* Цитата Лао-Цзы */}
-      <div style={{
-        textAlign: 'center',
-        padding: '1rem',
-        marginBottom: '1rem',
-        borderTop: `1px solid ${isDark ? '#2a1a08' : '#e8d5b7'}`,
-        borderBottom: `1px solid ${isDark ? '#2a1a08' : '#e8d5b7'}`,
-      }}>
-        <p style={{
-          fontFamily: 'Cormorant Garamond, serif',
-          fontSize: '1rem',
-          fontStyle: 'italic',
-          color: isDark ? '#a89070' : '#8B7355',
-        }}>
-          «Путь в тысячу ли начинается с первого шага»
-        </p>
-        <p style={{
-          fontFamily: 'Raleway, sans-serif',
-          fontSize: '0.75rem',
-          color: isDark ? '#6b5a44' : '#a09080',
-          marginTop: '0.3rem',
-        }}>
-          — Лао-Цзы
-        </p>
+      {/* Season quote */}
+      <div style={{ background: card, border: `1px solid ${border}`, borderRadius: '12px', padding: '0.8rem 1rem', marginBottom: '1rem', textAlign: 'center' }}>
+        <p style={{ color: soft, fontSize: '0.85rem', fontStyle: 'italic', margin: 0 }}>{SEASON_QUOTES[season]}</p>
       </div>
 
-      {/* Сезонная цитата */}
-      <div style={{
-        textAlign: 'center',
-        padding: '0.8rem',
-        marginBottom: '1rem',
-        background: isDark ? 'rgba(200,146,42,0.05)' : 'rgba(200,146,42,0.08)',
-        borderRadius: '12px',
-      }}>
-        <p style={{
-          fontFamily: 'Cormorant Garamond, serif',
-          fontSize: '0.9rem',
-          fontStyle: 'italic',
-          color: isDark ? '#c8922a' : '#8B6914',
-        }}>
-          {seasonQuotes[season]}
-        </p>
-      </div>
-
-      {/* Цитата дня */}
+      {/* Daily quote */}
       <DailyQuote />
 
-      {/* Виджет недели */}
-      <WeekWidget />
-
-      {/* Полка с книгами */}
-      <div style={{ marginBottom: '1.5rem' }}>
-        <h2 style={{
-          fontFamily: 'Cormorant Garamond, serif',
-          fontSize: '1.2rem',
-          fontWeight: 600,
-          textAlign: 'center',
-          color: isDark ? '#c8922a' : '#5c4a2a',
-          marginBottom: '1rem',
-        }}>
-          Твоя полка
-        </h2>
-        <div style={{
-          display: 'grid',
-          gridTemplateColumns: 'repeat(3, 1fr)',
-          gap: '0.8rem',
-        }}>
-          {books.map((book) => (
-            <button
-              key={book.id}
-              onClick={() => onNavigate(book.id)}
-              style={{
-                display: 'flex',
-                flexDirection: 'column',
-                alignItems: 'center',
-                gap: '0.4rem',
-                padding: '1rem 0.5rem',
-                background: isDark ? 'rgba(200,146,42,0.08)' : 'rgba(255,255,255,0.6)',
-                border: `1px solid ${isDark ? '#2a1a08' : '#e8d5b7'}`,
-                borderRadius: '12px',
-                cursor: 'pointer',
-                transition: 'transform 0.2s ease',
-              }}
-              onMouseEnter={(e) => (e.currentTarget.style.transform = 'translateY(-2px)')}
-              onMouseLeave={(e) => (e.currentTarget.style.transform = 'translateY(0)')}
-            >
-              <span style={{ fontSize: '2rem' }}>{book.emoji}</span>
-              <span style={{
-                fontFamily: 'Raleway, sans-serif',
-                fontSize: '0.7rem',
-                color: isDark ? '#a89070' : '#5c4a2a',
-              }}>
-                {book.label}
-              </span>
-            </button>
-          ))}
-        </div>
-      </div>
-
-      {/* Статистика */}
+      {/* Stats */}
       <Stats />
 
-      {/* Слоган */}
-      <p style={{
-        textAlign: 'center',
-        fontFamily: 'Cormorant Garamond, serif',
-        fontSize: '0.85rem',
-        fontStyle: 'italic',
-        color: isDark ? '#6b5a44' : '#a09080',
-        marginTop: '1.5rem',
-      }}>
+      {/* Week widget */}
+      <WeekWidget />
+
+      {/* Lao Tzu */}
+      <div style={{ textAlign: 'center', padding: '1rem', marginBottom: '1.5rem' }}>
+        <p style={{ fontFamily: 'Cormorant Garamond, serif', fontSize: '1.1rem', color: soft, fontStyle: 'italic', margin: 0 }}>
+          «Познающий других — мудр. Познающий себя — просветлён.»
+        </p>
+        <p style={{ color: soft, fontSize: '0.75rem', marginTop: '0.3rem' }}>— Лао-Цзы</p>
+      </div>
+
+      {/* Books */}
+      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: '0.75rem', marginBottom: '1rem' }}>
+        {books.map(book => (
+          <button key={book.id} onClick={() => onNavigate(book.id)} style={{
+            background: card, border: `1px solid ${border}`, borderRadius: '12px',
+            padding: '1rem 0.5rem', cursor: 'pointer', transition: 'all 0.3s ease',
+            display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '0.4rem',
+          }}
+            onMouseEnter={e => { (e.currentTarget as HTMLElement).style.transform = 'translateY(-3px)'; (e.currentTarget as HTMLElement).style.boxShadow = '0 6px 20px rgba(184,134,11,0.15)'; }}
+            onMouseLeave={e => { (e.currentTarget as HTMLElement).style.transform = 'translateY(0)'; (e.currentTarget as HTMLElement).style.boxShadow = 'none'; }}
+          >
+            <span style={{ fontSize: '2rem' }}>{book.emoji}</span>
+            <span style={{ fontFamily: 'Raleway, sans-serif', fontSize: '0.75rem', color: text, fontWeight: 600 }}>{book.title}</span>
+          </button>
+        ))}
+      </div>
+
+      {/* Slogan */}
+      <p style={{ textAlign: 'center', color: soft, fontSize: '0.8rem', fontStyle: 'italic', marginTop: '1rem' }}>
         Посмотри на себя. По-настоящему.
       </p>
     </div>

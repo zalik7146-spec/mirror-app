@@ -1,6 +1,6 @@
-import { useState, useRef } from 'react';
+import { useState } from 'react';
 import { ThemeProvider, useTheme } from './context/ThemeContext';
-import Navigation from './components/Navigation';
+import { SeasonProvider } from './context/SeasonContext';
 import Home from './components/Home';
 import Diary from './components/Diary';
 import Workshop from './components/Workshop';
@@ -11,109 +11,54 @@ import Settings from './components/Settings';
 import Compass from './components/Compass';
 import Mirror from './components/Mirror';
 import Onboarding from './components/Onboarding';
+import Navigation from './components/Navigation';
 
 export type Section = 'home' | 'diary' | 'workshop' | 'gratitude' | 'mood' | 'sage' | 'settings' | 'compass' | 'mirror';
 
-function usePageSound() {
-  const audioCtx = useRef<AudioContext | null>(null);
-  const playPageTurn = () => {
-    try {
-      if (!audioCtx.current) {
-        audioCtx.current = new (window.AudioContext || (window as any).webkitAudioContext)();
-      }
-      const ctx = audioCtx.current;
-      const soundEnabled = localStorage.getItem('mirror_sound') !== 'false';
-      if (!soundEnabled) return;
-      const osc1 = ctx.createOscillator();
-      osc1.type = 'sine';
-      osc1.frequency.setValueAtTime(200, ctx.currentTime);
-      osc1.frequency.exponentialRampToValueAtTime(130, ctx.currentTime + 0.2);
-      const gain1 = ctx.createGain();
-      gain1.gain.setValueAtTime(0, ctx.currentTime);
-      gain1.gain.linearRampToValueAtTime(0.07, ctx.currentTime + 0.06);
-      gain1.gain.exponentialRampToValueAtTime(0.001, ctx.currentTime + 0.25);
-      osc1.connect(gain1);
-      gain1.connect(ctx.destination);
-      osc1.start(ctx.currentTime);
-      osc1.stop(ctx.currentTime + 0.25);
-    } catch (e) {}
-  };
-  return playPageTurn;
-}
-
-function ThemeToggle() {
+function AppContent() {
   const { isDark, toggleTheme } = useTheme();
-  return (
-    <button
-      onClick={toggleTheme}
-      title={isDark ? 'Дневная тема' : 'Ночная тема'}
-      className="safe-top-buttons"
-      style={{
-        position: 'fixed',
-        top: '16px',
-        right: '16px',
-        zIndex: 100,
-        background: isDark ? 'rgba(200,146,42,0.15)' : 'rgba(44,36,22,0.08)',
-        border: isDark ? '1px solid rgba(200,146,42,0.3)' : '1px solid rgba(44,36,22,0.12)',
-        borderRadius: '50%',
-        width: '40px',
-        height: '40px',
-        display: 'flex',
-        alignItems: 'center',
-        justifyContent: 'center',
-        fontSize: '1.1rem',
-        cursor: 'pointer',
-        backdropFilter: 'blur(8px)',
-      }}
-    >
-      {isDark ? '☀️' : '🌙'}
-    </button>
-  );
-}
-
-function AppInner() {
-  const [onboarded, setOnboarded] = useState(() => localStorage.getItem('mirror_onboarded') === 'true');
   const [section, setSection] = useState<Section>('home');
   const [animKey, setAnimKey] = useState(0);
-  const playPageTurn = usePageSound();
-
-  const handleOnboardingComplete = (name: string) => {
-    if (name) localStorage.setItem('mirror_user_name', name);
-    localStorage.setItem('mirror_onboarded', 'true');
-    setOnboarded(true);
-  };
+  const [onboarded] = useState(() => !!localStorage.getItem('mirror-onboarding-complete'));
+  const [showOnboarding, setShowOnboarding] = useState(!onboarded);
 
   const navigate = (s: Section) => {
-    playPageTurn();
-    setSection(s);
     setAnimKey(k => k + 1);
+    setSection(s);
   };
 
-  const renderSection = () => {
-    switch (section) {
-      case 'home': return <Home onNavigate={navigate} />;
-      case 'diary': return <Diary />;
-      case 'workshop': return <Workshop />;
-      case 'gratitude': return <Gratitude />;
-      case 'mood': return <Mood />;
-      case 'sage': return <Sage onGoToSettings={() => navigate('settings')} />;
-      case 'settings': return <Settings />;
-      case 'compass': return <Compass />;
-      case 'mirror': return <Mirror />;
-      default: return <Home onNavigate={navigate} />;
-    }
-  };
+  const bg = isDark ? '#1a1410' : '#fdf6ec';
 
-  if (!onboarded) {
-    return <Onboarding onComplete={handleOnboardingComplete} />;
+  if (showOnboarding) {
+    return <Onboarding onComplete={() => setShowOnboarding(false)} />;
   }
 
   return (
-    <div className="library-bg" style={{ minHeight: '100vh' }}>
-      <ThemeToggle />
-      <main key={animKey} className="page-flip">
-        {renderSection()}
+    <div style={{ background: bg, minHeight: '100vh' }}>
+      {/* Theme toggle */}
+      <button onClick={toggleTheme} className="safe-top-buttons" style={{
+        position: 'fixed', right: '4rem', zIndex: 150,
+        background: isDark ? '#2d2218' : '#fff9f0',
+        border: `1px solid ${isDark ? '#3d2e1e' : '#e8d5b0'}`,
+        borderRadius: '50%', width: '2.5rem', height: '2.5rem',
+        cursor: 'pointer', fontSize: '1.1rem',
+        display: 'flex', alignItems: 'center', justifyContent: 'center',
+      }}>
+        {isDark ? '☀️' : '🌙'}
+      </button>
+
+      <main key={animKey} className="animate-bookOpen" style={{ paddingBottom: '5rem' }}>
+        {section === 'home' && <Home onNavigate={navigate} />}
+        {section === 'diary' && <Diary />}
+        {section === 'gratitude' && <Gratitude />}
+        {section === 'mood' && <Mood />}
+        {section === 'workshop' && <Workshop />}
+        {section === 'compass' && <Compass />}
+        {section === 'mirror' && <Mirror />}
+        {section === 'sage' && <Sage />}
+        {section === 'settings' && <Settings />}
       </main>
+
       <Navigation current={section} onNavigate={navigate} />
     </div>
   );
@@ -122,7 +67,9 @@ function AppInner() {
 export default function App() {
   return (
     <ThemeProvider>
-      <AppInner />
+      <SeasonProvider>
+        <AppContent />
+      </SeasonProvider>
     </ThemeProvider>
   );
 }

@@ -1,433 +1,159 @@
 import { useState, useEffect, useRef } from 'react';
 import { useTheme } from '../context/ThemeContext';
 
-const SYSTEM_PROMPT = `Ты — Мудрец, душа приложения «Зеркало». Это личное пространство для встречи с собой, созданное психологом.
+interface Message { role: 'user' | 'assistant'; text: string; }
 
-Твой характер:
-- Мудрый, тёплый, спокойный. Как опытный психолог и близкий друг одновременно.
-- Ты говоришь неспешно, вдумчиво. Никогда не торопишься с советами.
-- Ты задаёшь вопросы, которые помогают человеку думать — не даёшь готовых ответов.
-- Ты принимаешь без осуждения. Любую эмоцию, любую мысль.
-- Ты говоришь по-русски, красиво и тепло.
+const RESPONSES: Record<string, string[]> = {
+  тревог: ['Тревога — это сигнал, не приговор. Она говорит о том, что что-то важно для тебя. Можешь назвать — что именно сейчас тревожит больше всего?', 'Когда тревожно, тело напрягается. Попробуй сделать три медленных вдоха. Что происходит внутри прямо сейчас?'],
+  грустн: ['Грусть — это не слабость. Это честность. Что за ней стоит — потеря, усталость, одиночество?', 'Позволь себе побыть с этой грустью. Она тоже часть тебя. Как давно это чувство рядом?'],
+  устал: ['Усталость — это сигнал что ты много отдавал. Что сейчас больше всего истощает тебя?', 'Когда последний раз ты делал что-то только для себя — без пользы, без цели?'],
+  один: ['Одиночество бывает разным. Иногда это нехватка людей. Иногда — нехватка понимания. Что именно сейчас?', 'Ты не один в своём одиночестве — парадоксально, но так. Что помогло бы тебе сейчас?'],
+  злост: ['Злость говорит о нарушенных границах или несправедливости. На что направлена твоя злость?', 'Злость — это энергия. Что за ней скрывается — боль, страх, разочарование?'],
+  смысл: ['Вопрос смысла — самый честный вопрос. Виктор Франкл говорил: смысл не найти, его нужно создать. Что даёт тебе ощущение важности прямо сейчас?'],
+  default: ['Я слышу тебя. Расскажи мне больше — что происходит?', 'Это звучит важно. Как давно это с тобой?', 'Что ты чувствуешь когда думаешь об этом?', 'Как это влияет на твою жизнь сейчас?'],
+};
 
-Твой подход:
-- Сначала — отразить то, что человек сказал. Показать, что ты услышал.
-- Затем — мягко углубить. Задать один важный вопрос.
-- Иногда — поделиться психологической мыслью, но без лекций.
-- Ты помнишь весь контекст разговора и обращаешься к нему.
-
-Важно:
-- Ты не ставишь диагнозы. Ты не назначаешь лечение.
-- При серьёзных темах (суицидальные мысли, тяжёлые кризисы) — с теплом рекомендуешь обратиться к живому специалисту.
-- Отвечай умеренно по длине — не слишком коротко, не слишком длинно. 3-5 абзацев максимум.
-- Никогда не начинай ответ с «Я понимаю» — это слишком шаблонно.`;
-
-const STARTER_QUESTIONS = [
-  'Мне тревожно, и я не знаю почему',
-  'Я чувствую усталость от всего',
-  'Как полюбить себя?',
-  'Мне трудно с отношениями',
-  'Я потерял смысл',
-  'Мне тяжело, но я не могу объяснить',
-];
-
-interface Message {
-  role: 'user' | 'sage';
-  text: string;
+function getResponse(text: string): string {
+  const lower = text.toLowerCase();
+  for (const [key, responses] of Object.entries(RESPONSES)) {
+    if (key !== 'default' && lower.includes(key)) {
+      return responses[Math.floor(Math.random() * responses.length)];
+    }
+  }
+  return RESPONSES.default[Math.floor(Math.random() * RESPONSES.default.length)];
 }
 
-export default function Sage({ onGoToSettings }: { onGoToSettings?: () => void }) {
+export default function Sage() {
   const { isDark } = useTheme();
-  const [messages, setMessages] = useState<Message[]>(() => {
-    const stored = localStorage.getItem('mirror_sage');
-    return stored ? JSON.parse(stored) : [];
-  });
+  const [messages, setMessages] = useState<Message[]>([]);
   const [input, setInput] = useState('');
-  const [isTyping, setIsTyping] = useState(false);
-  const [error, setError] = useState('');
+  const [loading, setLoading] = useState(false);
+  const [apiKey] = useState(() => localStorage.getItem('mirror-api-key') || '');
   const bottomRef = useRef<HTMLDivElement>(null);
 
-  const hasApiKey = !!localStorage.getItem('mirror_openai_key');
+  const bg = isDark ? '#1a1410' : '#fdf6ec';
+  const text = isDark ? '#e8d5b0' : '#5c4a2a';
+  const soft = isDark ? '#a89070' : '#8a7560';
+  const card = isDark ? '#2d2218' : '#fff9f0';
+  const border = isDark ? '#3d2e1e' : '#e8d5b0';
+  const inputBg = isDark ? '#3d2e1e' : '#fff';
+  const userBubble = isDark ? '#4a3520' : '#f5e6c8';
+  const aiBubble = isDark ? '#2d2218' : '#fff9f0';
 
   useEffect(() => {
-    localStorage.setItem('mirror_sage', JSON.stringify(messages));
+    const saved = localStorage.getItem('mirror-sage-messages');
+    if (saved) setMessages(JSON.parse(saved));
+  }, []);
+
+  useEffect(() => {
     bottomRef.current?.scrollIntoView({ behavior: 'smooth' });
   }, [messages]);
 
-  const send = async (text: string) => {
-    if (!text.trim() || isTyping) return;
-    setError('');
-
-    const userMsg: Message = { role: 'user', text: text.trim() };
-    const updatedMessages = [...messages, userMsg];
-    setMessages(updatedMessages);
+  const send = async () => {
+    if (!input.trim()) return;
+    const userMsg: Message = { role: 'user', text: input };
+    const updated = [...messages, userMsg];
+    setMessages(updated);
     setInput('');
-    setIsTyping(true);
+    setLoading(true);
 
-    const apiKey = localStorage.getItem('mirror_openai_key');
-
-    if (!apiKey) {
+    if (apiKey) {
+      try {
+        const res = await fetch('https://api.openai.com/v1/chat/completions', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${apiKey}` },
+          body: JSON.stringify({
+            model: 'gpt-4o',
+            messages: [
+              { role: 'system', content: 'Ты — мудрый, тёплый и внимательный психологический помощник. Ты говоришь по-русски, мягко и глубоко. Ты не даёшь советов сразу — сначала слушаешь, задаёшь вопросы, помогаешь человеку самому прийти к пониманию. Ты говоришь как мудрый друг, не как бот.' },
+              ...updated.map(m => ({ role: m.role, content: m.text })),
+            ],
+          }),
+        });
+        const data = await res.json();
+        const reply = data.choices?.[0]?.message?.content || getResponse(input);
+        const withReply = [...updated, { role: 'assistant' as const, text: reply }];
+        setMessages(withReply);
+        localStorage.setItem('mirror-sage-messages', JSON.stringify(withReply));
+      } catch {
+        const reply = getResponse(input);
+        const withReply = [...updated, { role: 'assistant' as const, text: reply }];
+        setMessages(withReply);
+        localStorage.setItem('mirror-sage-messages', JSON.stringify(withReply));
+      }
+    } else {
       setTimeout(() => {
-        setMessages(prev => [...prev, {
-          role: 'sage',
-          text: 'Чтобы я мог по-настоящему думать и отвечать тебе — нужно добавить API ключ в Настройках. Это займёт одну минуту. 🗝️',
-        }]);
-        setIsTyping(false);
+        const reply = getResponse(input);
+        const withReply = [...updated, { role: 'assistant' as const, text: reply }];
+        setMessages(withReply);
+        localStorage.setItem('mirror-sage-messages', JSON.stringify(withReply));
+        setLoading(false);
       }, 800);
       return;
     }
-
-    const gptMessages = [
-      { role: 'system', content: SYSTEM_PROMPT },
-      ...updatedMessages.map(m => ({
-        role: m.role === 'user' ? 'user' : 'assistant',
-        content: m.text,
-      })),
-    ];
-
-    try {
-      const response = await fetch('https://api.openai.com/v1/chat/completions', {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          'Authorization': `Bearer ${apiKey}`,
-        },
-        body: JSON.stringify({
-          model: 'gpt-4o',
-          messages: gptMessages,
-          temperature: 0.85,
-          max_tokens: 600,
-        }),
-      });
-
-      if (!response.ok) {
-        const err = await response.json();
-        throw new Error(err.error?.message || 'Ошибка OpenAI');
-      }
-
-      const data = await response.json();
-      const reply = data.choices[0].message.content;
-      setMessages(prev => [...prev, { role: 'sage', text: reply }]);
-    } catch (e: unknown) {
-      const message = e instanceof Error ? e.message : 'Неизвестная ошибка';
-      setError(message);
-      setMessages(prev => [...prev, {
-        role: 'sage',
-        text: 'Что-то пошло не так при соединении. Проверь ключ в Настройках или попробуй снова. 🌿',
-      }]);
-    } finally {
-      setIsTyping(false);
-    }
+    setLoading(false);
   };
 
-  const handleKey = (e: React.KeyboardEvent) => {
-    if (e.key === 'Enter' && !e.shiftKey) {
-      e.preventDefault();
-      send(input);
-    }
-  };
-
-  // Цвета по теме
-  const bg = isDark ? '#1a1510' : 'transparent';
-
-  const titleColor = isDark ? '#e8dcc8' : '#2c2416';
-  const subtitleColor = isDark ? '#b8a882' : '#8b6914';
-  const textColor = isDark ? '#d4c5a9' : '#2c2416';
-  const mutedColor = isDark ? '#8b7a5e' : '#5c4f3a';
-  const borderColor = isDark ? 'rgba(200, 146, 42, 0.18)' : 'rgba(200, 146, 42, 0.12)';
-  const inputBg = isDark ? 'rgba(45, 36, 22, 0.9)' : 'rgba(245, 240, 232, 0.9)';
-  const inputBorder = isDark ? 'rgba(200, 146, 42, 0.3)' : 'rgba(200, 146, 42, 0.25)';
-  const userMsgBg = isDark
-    ? 'linear-gradient(135deg, rgba(200, 146, 42, 0.18), rgba(139, 105, 20, 0.12))'
-    : 'linear-gradient(135deg, rgba(200, 146, 42, 0.12), rgba(139, 105, 20, 0.08))';
-  const sageMsgBg = isDark ? 'rgba(38, 30, 18, 0.97)' : 'rgba(250, 247, 242, 0.95)';
-  const noticeBg = isDark ? 'rgba(200, 146, 42, 0.07)' : 'rgba(200, 146, 42, 0.05)';
-  const noticeBorder = isDark ? 'rgba(200, 146, 42, 0.2)' : 'rgba(200, 146, 42, 0.15)';
-  const starterBg = isDark ? 'rgba(45, 36, 22, 0.9)' : 'rgba(245, 240, 232, 0.9)';
-  const starterHoverBg = isDark ? 'rgba(200, 146, 42, 0.14)' : 'rgba(200, 146, 42, 0.08)';
-  const footerBg = isDark ? 'rgba(26, 21, 16, 0.97)' : 'rgba(250, 247, 242, 0.95)';
+  const clear = () => { setMessages([]); localStorage.removeItem('mirror-sage-messages'); };
 
   return (
-    <div className="min-h-screen library-bg pt-8 pb-28 px-6" style={{ background: isDark ? bg : undefined }}>
-      <div className="max-w-2xl mx-auto flex flex-col" style={{ minHeight: 'calc(100vh - 7rem)' }}>
+    <div style={{ minHeight: '100vh', background: bg, display: 'flex', flexDirection: 'column', fontFamily: 'Raleway, sans-serif' }}>
+      <div style={{ textAlign: 'center', padding: '1.5rem 1rem 0.75rem' }}>
+        <div style={{ fontSize: '2rem' }}>💬</div>
+        <h1 style={{ fontFamily: 'Cormorant Garamond, serif', fontSize: '2rem', color: text, margin: '0.3rem 0' }}>Мудрец</h1>
+        {!apiKey && <p style={{ color: soft, fontSize: '0.8rem', fontStyle: 'italic' }}>Добавь API ключ в настройках для полного диалога</p>}
+      </div>
 
-        {/* Заголовок */}
-        <div className="text-center mb-8">
-          <span className="text-4xl">💬</span>
-          <h2
-            style={{ fontFamily: 'Cormorant Garamond, serif', color: titleColor }}
-            className="text-4xl font-light mt-3 mb-2"
-          >
-            Мудрец
-          </h2>
-          <p style={{ color: subtitleColor, fontFamily: 'Cormorant Garamond, serif' }} className="text-lg italic">
-            Что мне нужно услышать?
-          </p>
-
-          {/* Статус подключения */}
-          <div className="flex items-center justify-center gap-3 mt-3">
-            <span
-              style={{
-                fontSize: '0.72rem',
-                letterSpacing: '0.08em',
-                color: hasApiKey ? '#5a7a2e' : subtitleColor,
-                background: hasApiKey
-                  ? 'rgba(139, 195, 74, 0.1)'
-                  : isDark ? 'rgba(200, 146, 42, 0.1)' : 'rgba(200, 146, 42, 0.08)',
-                border: `1px solid ${hasApiKey
-                  ? 'rgba(139, 195, 74, 0.25)'
-                  : isDark ? 'rgba(200, 146, 42, 0.25)' : 'rgba(200, 146, 42, 0.2)'}`,
-                borderRadius: '20px',
-                padding: '3px 12px',
-              }}
-            >
-              {hasApiKey ? '✓ GPT-4o подключён' : '○ Без API ключа'}
-            </span>
-            {!hasApiKey && onGoToSettings && (
-              <button
-                onClick={onGoToSettings}
-                style={{
-                  fontSize: '0.72rem',
-                  color: '#c8922a',
-                  background: 'none',
-                  border: 'none',
-                  cursor: 'pointer',
-                  textDecoration: 'underline',
-                  fontFamily: 'Raleway, sans-serif',
-                }}
-              >
-                Добавить ключ →
-              </button>
-            )}
-          </div>
-
-          {messages.length > 0 && (
-            <button
-              onClick={() => {
-                setMessages([]);
-                localStorage.removeItem('mirror_sage');
-              }}
-              style={{
-                marginTop: '12px',
-                background: 'none',
-                border: `1px solid ${isDark ? 'rgba(200, 146, 42, 0.25)' : 'rgba(200, 146, 42, 0.2)'}`,
-                borderRadius: '20px',
-                padding: '4px 14px',
-                fontSize: '0.72rem',
-                color: subtitleColor,
-                cursor: 'pointer',
-                fontFamily: 'Raleway, sans-serif',
-                letterSpacing: '0.06em',
-                transition: 'all 0.3s ease',
-              }}
-            >
-              Начать новый разговор
-            </button>
-          )}
-        </div>
-
-        {/* Предупреждение */}
-        <div
-          className="mb-6"
-          style={{
-            animationFillMode: 'forwards',
-            background: noticeBg,
-            border: `1px solid ${noticeBorder}`,
-            borderRadius: '8px',
-            padding: '14px 18px',
-          }}
-        >
-          <p style={{ color: subtitleColor, fontSize: '0.8rem', lineHeight: 1.6 }}>
-            🌿 <em>Мудрец — это голос внутри тебя, которому я помогаю звучать. Это не замена живому психологу, но это пространство, где можно думать вслух.</em>
-          </p>
-        </div>
-
-        {/* Ошибка */}
-        {error && (
-          <div
-            className="mb-4 animate-fadeIn"
-            style={{
-              background: isDark ? 'rgba(200, 50, 50, 0.08)' : 'rgba(200, 50, 50, 0.05)',
-              border: '1px solid rgba(200, 50, 50, 0.2)',
-              borderRadius: '8px',
-              padding: '10px 16px',
-              fontSize: '0.78rem',
-              color: isDark ? '#e07070' : '#a04040',
-            }}
-          >
-            ⚠️ {error}
-          </div>
-        )}
-
-        {/* Стартовые вопросы */}
+      <div style={{ flex: 1, overflowY: 'auto', padding: '1rem', paddingBottom: '8rem' }}>
         {messages.length === 0 && (
-          <div className="mb-6">
-            <p style={{ color: subtitleColor, fontSize: '0.75rem', letterSpacing: '0.1em', textTransform: 'uppercase', marginBottom: '12px' }}>
-              С чего начать
+          <div style={{ textAlign: 'center', padding: '2rem 1rem' }}>
+            <p style={{ fontFamily: 'Cormorant Garamond, serif', fontSize: '1.3rem', color: text, marginBottom: '1.5rem', fontStyle: 'italic' }}>
+              «Всё, что нас беспокоит — внутри нас, а не снаружи.» — Марк Аврелий
             </p>
-            <div className="flex flex-wrap gap-2">
-              {STARTER_QUESTIONS.map(q => (
-                <button
-                  key={q}
-                  onClick={() => send(q)}
-                  style={{
-                    background: starterBg,
-                    border: `1px solid ${inputBorder}`,
-                    borderRadius: '20px',
-                    padding: '8px 16px',
-                    fontSize: '0.82rem',
-                    color: mutedColor,
-                    cursor: 'pointer',
-                    fontFamily: 'Cormorant Garamond, serif',
-                    transition: 'all 0.3s ease',
-                  }}
-                  onMouseEnter={e => (e.currentTarget.style.background = starterHoverBg)}
-                  onMouseLeave={e => (e.currentTarget.style.background = starterBg)}
-                >
-                  {q}
-                </button>
+            <div style={{ display: 'grid', gap: '0.75rem' }}>
+              {['Мне тревожно и я не знаю почему', 'Я чувствую себя потерянным', 'Хочу поговорить о смысле', 'Мне грустно сегодня'].map(q => (
+                <button key={q} onClick={() => { setInput(q); }} style={{
+                  background: card, border: `1px solid ${border}`, borderRadius: '12px',
+                  padding: '0.75rem 1rem', cursor: 'pointer', color: soft,
+                  fontFamily: 'Cormorant Garamond, serif', fontSize: '1rem', textAlign: 'left',
+                  transition: 'all 0.2s ease',
+                }}>{q}</button>
               ))}
             </div>
           </div>
         )}
 
-        {/* Диалог */}
-        <div
-          className="flex-1 flex flex-col gap-4 mb-4 overflow-y-auto"
-          style={{ minHeight: messages.length > 0 ? '300px' : 'auto' }}
-        >
-          {messages.map((msg, i) => (
-            <div
-              key={i}
-              className="animate-fadeInUp"
-              style={{
-                animationFillMode: 'forwards',
-                display: 'flex',
-                justifyContent: msg.role === 'user' ? 'flex-end' : 'flex-start',
-              }}
-            >
-              {msg.role === 'sage' && (
-                <div style={{ marginRight: '10px', marginTop: '4px', fontSize: '1.2rem' }}>🪞</div>
-              )}
-              <div
-                style={{
-                  maxWidth: '80%',
-                  background: msg.role === 'user' ? userMsgBg : sageMsgBg,
-                  border: `1px solid ${msg.role === 'user'
-                    ? isDark ? 'rgba(200, 146, 42, 0.3)' : 'rgba(200, 146, 42, 0.25)'
-                    : borderColor}`,
-                  borderRadius: msg.role === 'user' ? '16px 16px 4px 16px' : '4px 16px 16px 16px',
-                  padding: '14px 18px',
-                  fontFamily: 'Cormorant Garamond, serif',
-                  fontSize: '1rem',
-                  color: textColor,
-                  lineHeight: '1.8',
-                  whiteSpace: 'pre-wrap',
-                  boxShadow: isDark
-                    ? '0 2px 12px rgba(0,0,0,0.3)'
-                    : '0 2px 12px rgba(44, 36, 22, 0.06)',
-                }}
-              >
-                {msg.text}
-              </div>
-            </div>
-          ))}
-
-          <div ref={bottomRef} />
-
-          {isTyping && (
-            <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }} className="animate-fadeIn">
-              <span style={{ fontSize: '1.2rem' }}>🪞</span>
-              <div
-                style={{
-                  background: sageMsgBg,
-                  border: `1px solid ${borderColor}`,
-                  borderRadius: '4px 16px 16px 16px',
-                  padding: '12px 18px',
-                  display: 'flex',
-                  gap: '6px',
-                  alignItems: 'center',
-                }}
-              >
-                {[0, 1, 2].map(d => (
-                  <div
-                    key={d}
-                    style={{
-                      width: '6px',
-                      height: '6px',
-                      borderRadius: '50%',
-                      background: '#c8922a',
-                      animation: `flicker 1.2s ease-in-out ${d * 0.2}s infinite`,
-                    }}
-                  />
-                ))}
-              </div>
-            </div>
-          )}
-        </div>
-
-        {/* Поле ввода */}
-        <div
-          className=""
-          style={{
-            animationFillMode: 'forwards',
-            position: 'sticky',
-            bottom: '0',
-            paddingBottom: '16px',
-            paddingTop: '8px',
-            background: footerBg,
-            backdropFilter: 'blur(8px)',
-          }}
-        >
-          <div style={{ display: 'flex', gap: '12px', alignItems: 'flex-end' }}>
-            <textarea
-              value={input}
-              onChange={e => setInput(e.target.value)}
-              onKeyDown={handleKey}
-              placeholder="Напиши, что у тебя на душе..."
-              rows={2}
-              style={{
-                flex: 1,
-                background: inputBg,
-                border: `1px solid ${inputBorder}`,
-                borderRadius: '10px',
-                padding: '14px 18px',
-                fontFamily: 'Cormorant Garamond, serif',
-                fontSize: '1rem',
-                lineHeight: '1.6',
-                color: textColor,
-                transition: 'border-color 0.3s ease',
-                resize: 'none',
-              }}
-              onFocus={e => (e.target.style.borderColor = 'rgba(200, 146, 42, 0.6)')}
-              onBlur={e => (e.target.style.borderColor = inputBorder)}
-            />
-            <button
-              onClick={() => send(input)}
-              disabled={!input.trim() || isTyping}
-              style={{
-                background: input.trim() && !isTyping
-                  ? 'linear-gradient(135deg, #c8922a, #8b6914)'
-                  : isDark ? 'rgba(200, 146, 42, 0.15)' : 'rgba(200, 146, 42, 0.2)',
-                color: input.trim() && !isTyping ? '#faf7f2' : subtitleColor,
-                border: 'none',
-                borderRadius: '10px',
-                width: '48px',
-                height: '48px',
-                fontSize: '1.2rem',
-                cursor: input.trim() && !isTyping ? 'pointer' : 'default',
-                transition: 'all 0.3s ease',
-                display: 'flex',
-                alignItems: 'center',
-                justifyContent: 'center',
-                flexShrink: 0,
-              }}
-            >
-              →
-            </button>
+        {messages.map((m, i) => (
+          <div key={i} style={{ display: 'flex', justifyContent: m.role === 'user' ? 'flex-end' : 'flex-start', marginBottom: '1rem' }}>
+            <div style={{
+              maxWidth: '80%', padding: '0.75rem 1rem',
+              background: m.role === 'user' ? userBubble : aiBubble,
+              border: `1px solid ${border}`, borderRadius: m.role === 'user' ? '16px 16px 4px 16px' : '16px 16px 16px 4px',
+              color: text, fontFamily: 'Cormorant Garamond, serif', fontSize: '1.05rem', lineHeight: 1.6,
+            }}>{m.text}</div>
           </div>
-        </div>
+        ))}
 
+        {loading && (
+          <div style={{ display: 'flex', gap: '0.3rem', padding: '0.75rem 1rem', background: aiBubble, border: `1px solid ${border}`, borderRadius: '16px 16px 16px 4px', width: 'fit-content' }}>
+            {[0, 1, 2].map(i => <span key={i} style={{ width: '6px', height: '6px', background: soft, borderRadius: '50%', animation: `pulse 1s ${i * 0.2}s infinite` }} />)}
+          </div>
+        )}
+        <div ref={bottomRef} />
+      </div>
+
+      <div style={{ position: 'fixed', bottom: '4.5rem', left: 0, right: 0, padding: '0.75rem 1rem', background: bg, borderTop: `1px solid ${border}` }}>
+        {messages.length > 0 && (
+          <button onClick={clear} style={{ background: 'none', border: 'none', color: soft, fontSize: '0.75rem', cursor: 'pointer', marginBottom: '0.5rem' }}>Очистить диалог</button>
+        )}
+        <div style={{ display: 'flex', gap: '0.5rem' }}>
+          <textarea value={input} onChange={e => setInput(e.target.value)}
+            onKeyDown={e => { if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); send(); } }}
+            placeholder="Напиши что на душе..."
+            rows={1}
+            style={{ flex: 1, background: inputBg, border: `1px solid ${border}`, borderRadius: '12px', padding: '0.75rem', outline: 'none', color: text, fontFamily: 'Raleway, sans-serif', fontSize: '0.95rem', resize: 'none' }} />
+          <button onClick={send} style={{ background: 'linear-gradient(135deg, #b8860b, #d4a017)', color: '#fff', border: 'none', borderRadius: '12px', padding: '0 1rem', cursor: 'pointer', fontSize: '1.2rem' }}>→</button>
+        </div>
       </div>
     </div>
   );

@@ -1,283 +1,162 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { useTheme } from '../context/ThemeContext';
 
-interface Practice {
-  title: string;
-  source: string;
-  category: string;
-  description: string;
-  question: string;
-}
+interface Practice { id: string; title: string; source: string; category: string; color: string; desc: string; benefit: string; question: string; }
+interface Session { id: string; date: string; practiceId: string; practiceTitle: string; answer: string; }
 
-const practices: Practice[] = [
-  { title: 'Дихотомия контроля', source: 'Эпиктет', category: 'Стоицизм', description: 'Раздели то, что тебя беспокоит, на две части — что в твоём контроле и что нет. Сосредоточься только на первом.', question: 'Что сейчас тебя беспокоит? Что из этого в твоём контроле?' },
-  { title: 'Premeditatio Malorum', source: 'Сенека', category: 'Стоицизм', description: 'Представь худший сценарий. Не чтобы бояться — а чтобы увидеть, что даже он переживаем.', question: 'Чего ты боишься? Что самое страшное может случиться — и как бы ты справился?' },
-  { title: 'Memento Mori', source: 'Марк Аврелий', category: 'Стоицизм', description: 'Помни о конечности. Это не мрачность — это ясность. Что действительно важно?', question: 'Если бы у тебя остался один день — на что бы ты его потратил?' },
-  { title: 'Amor Fati', source: 'Ницше / Стоики', category: 'Стоицизм', description: 'Любовь к судьбе. Принятие всего что происходит — не как наказания, а как материала для роста.', question: 'Что из происходящего сейчас ты можешь принять целиком — и хорошее, и трудное?' },
-  { title: 'Вечерний обзор', source: 'Сенека', category: 'Стоицизм', description: 'Сенека каждый вечер задавал себе три вопроса. Простая и мощная практика.', question: 'Что я сделал хорошо сегодня? Что мог сделать лучше? Что я узнал?' },
-  { title: 'Взгляд сверху', source: 'Марк Аврелий', category: 'Стоицизм', description: 'Представь свою жизнь с высоты птичьего полёта. Потом из космоса. Масштаб меняет восприятие.', question: 'Насколько важна твоя текущая проблема в масштабе года? Десяти лет? Жизни?' },
-  { title: 'Добровольный дискомфорт', source: 'Сенека', category: 'Стоицизм', description: 'Время от времени лишай себя комфорта намеренно. Это учит ценить то что имеешь.', question: 'От чего ты можешь отказаться на один день — и что это тебе покажет?' },
-  { title: 'Когнитивная реструктуризация', source: 'Аарон Бек', category: 'КПТ', description: 'Мысль — не факт. Запиши автоматическую негативную мысль и найди альтернативный взгляд.', question: 'Какая мысль тебя мучает? Есть ли другой способ посмотреть на эту ситуацию?' },
-  { title: 'Взгляд со стороны', source: 'КПТ', category: 'КПТ', description: 'Мы к себе жёстче чем к другим. Представь что друг пришёл с твоей проблемой.', question: 'Что бы ты сказал близкому другу который чувствует то же что и ты сейчас?' },
-  { title: 'Экспозиция страха', source: 'КПТ', category: 'КПТ', description: 'Назови страх. Оцени его от 1 до 10. Часто само называние уменьшает его силу.', question: 'Чего ты избегаешь? Насколько страшно это на самом деле от 1 до 10?' },
-  { title: 'Поведенческий эксперимент', source: 'КПТ', category: 'КПТ', description: 'Проверь свою мысль на практике. Часто наши прогнозы не совпадают с реальностью.', question: 'Что ты считаешь правдой о себе — и как можешь это проверить сегодня?' },
-  { title: 'Три хороших события', source: 'Мартин Селигман', category: 'Позитивная психология', description: 'Каждый вечер вспоминай три вещи которые пошли хорошо. Даже маленькие. Это меняет фокус.', question: 'Назови три вещи которые сегодня пошли хорошо. Почему они произошли?' },
-  { title: 'Лучшее возможное Я', source: 'Лора Кинг', category: 'Позитивная психология', description: 'Представь себя через 5 лет в лучшем варианте. Не фантазия — а направление.', question: 'Кем ты хочешь быть через 5 лет? Что ты делаешь, чувствуешь, как живёшь?' },
-  { title: 'Поток', source: 'Чиксентмихайи', category: 'Позитивная психология', description: 'Состояние полного погружения. Когда время исчезает и ты полностью в моменте.', question: 'Когда последний раз ты терял счёт времени от увлечённости? Что ты делал?' },
-  { title: 'Акт доброты', source: 'Соня Любомирски', category: 'Позитивная психология', description: 'Одно маленькое доброе действие в день. Для другого или для себя. Это повышает уровень счастья.', question: 'Какой маленький акт доброты ты можешь совершить сегодня?' },
-  { title: 'Сильные стороны', source: 'VIA Institute', category: 'Позитивная психология', description: 'Каждый человек обладает уникальным набором сильных сторон. Важно знать и использовать свои.', question: 'Какие три качества в себе ты ценишь больше всего? Как ты их проявил сегодня?' },
-  { title: 'Сканирование момента', source: 'Джон Кабат-Зинн', category: 'Осознанность', description: 'Остановись прямо сейчас. Что ты видишь, слышишь, чувствуешь? Просто замечай.', question: 'Что ты замечаешь прямо сейчас — в теле, в мыслях, вокруг?' },
-  { title: 'Наблюдение мыслей', source: 'ACT-терапия', category: 'Осознанность', description: 'Мысли — как облака. Они приходят и уходят. Ты — небо, а не облака.', question: 'Какие мысли сейчас проплывают? Можешь ли ты просто наблюдать их, не цепляясь?' },
-  { title: 'Благодарное присутствие', source: 'Тик Нат Хан', category: 'Осознанность', description: 'Прямо сейчас есть многое за что можно быть благодарным. Дыхание. Тишина. Жизнь.', question: 'За что ты благодарен прямо в этот момент? Назови пять вещей.' },
-  { title: 'Осознанная прогулка', source: 'MBSR', category: 'Осознанность', description: 'Иди медленно. Чувствуй каждый шаг. Замечай воздух на коже. Это медитация в движении.', question: 'Можешь ли ты сегодня выйти на 10 минут и просто идти — без телефона, без цели?' },
-  { title: 'Поиск смысла', source: 'Виктор Франкл', category: 'Экзистенциальная', description: 'Человек может вынести почти всё — если знает зачем. Смысл не находят — его создают.', question: 'Что придаёт смысл твоей жизни прямо сейчас? Что делает её стоящей?' },
-  { title: 'Свобода выбора', source: 'Ролло Мэй', category: 'Экзистенциальная', description: 'Между стимулом и реакцией есть пространство. В нём — твоя свобода. В нём — твой рост.', question: 'Где в жизни ты чувствуешь себя несвободным? Какой выбор у тебя на самом деле есть?' },
-  { title: 'Конечность как дар', source: 'Ирвин Ялом', category: 'Экзистенциальная', description: 'Осознание конечности не отнимает радость — оно делает каждый момент ценнее.', question: 'Что бы изменилось в твоей жизни если бы ты помнил о конечности каждый день?' },
-  { title: 'Аутентичность', source: 'Карл Роджерс', category: 'Экзистенциальная', description: 'Быть собой — самый смелый поступок. Не играть роль, а быть настоящим.', question: 'Где в жизни ты играешь роль? Каково было бы снять маску?' },
-  { title: 'Парадоксальная интенция', source: 'Виктор Франкл', category: 'Экзистенциальная', description: 'Иногда чтобы победить страх — нужно пожелать того чего боишься. Парадокс который работает.', question: 'Что если то чего ты боишься — произойдёт? Представь это намеренно. Что чувствуешь?' },
-  { title: 'Журнал энергии', source: 'Позитивная психология', category: 'Практическое', description: 'Отследи что даёт тебе энергию а что забирает. Знание — уже половина решения.', question: 'Что сегодня дало тебе энергию? Что забрало? Замечаешь паттерн?' },
-  { title: 'Правило двух минут', source: 'Дэвид Аллен', category: 'Практическое', description: 'Если дело занимает меньше двух минут — сделай его сейчас. Маленькие победы складываются.', question: 'Что маленькое ты откладывал? Можешь ли сделать это прямо сейчас?' },
-  { title: 'Одна вещь', source: 'Гэри Келлер', category: 'Практическое', description: 'Какая одна вещь, сделав которую сегодня, ты будешь доволен днём? Только одна.', question: 'Если бы ты мог сделать только одну вещь сегодня — что бы это было?' },
-  { title: 'Письмо себе', source: 'Нарративная терапия', category: 'Практическое', description: 'Напиши письмо себе — из будущего или из прошлого. Это мощный инструмент самопознания.', question: 'Что бы ты сказал себе 10-летнему? Или что скажет тебе ты из будущего?' },
-  { title: 'Ценности', source: 'ACT-терапия', category: 'Практическое', description: 'Ценности — это не цели. Это направления. Компас который всегда с тобой.', question: 'Какие три ценности для тебя самые важные? Живёшь ли ты в согласии с ними?' },
+const PRACTICES: Practice[] = [
+  { id: 'dichotomy', title: 'Дихотомия контроля', source: 'Эпиктет', category: 'Стоицизм', color: '#6366f1', desc: 'Разделяй то что в твоей власти и то что не в твоей. Это основа стоического спокойствия.', benefit: 'Снижает тревогу и фрустрацию. Помогает сосредоточиться на действиях а не на результатах.', question: 'Запиши что тебя беспокоит. Раздели на две части: что ты можешь контролировать — и что нет?' },
+  { id: 'premeditatio', title: 'Premeditatio malorum', source: 'Сенека', category: 'Стоицизм', color: '#6366f1', desc: 'Заранее представь худшее что может случиться. Это не пессимизм — это подготовка.', benefit: 'Снижает страх неизвестности. Парадоксально — делает тебя более спокойным и смелым.', question: 'Что самое страшное что может произойти в ситуации которая тебя беспокоит? Как бы ты справился?' },
+  { id: 'memento', title: 'Memento mori', source: 'Марк Аврелий', category: 'Стоицизм', color: '#6366f1', desc: 'Помни о смерти — не чтобы бояться, а чтобы ценить каждый момент.', benefit: 'Меняет перспективу. Помогает отпустить мелкое и сосредоточиться на важном.', question: 'Если бы этот день был последним — что бы ты сделал иначе? Что действительно важно?' },
+  { id: 'amor-fati', title: 'Amor fati', source: 'Ницше / Марк Аврелий', category: 'Стоицизм', color: '#6366f1', desc: 'Люби свою судьбу. Принимай всё что происходит — не терпи, а принимай с любовью.', benefit: 'Трансформирует отношение к трудностям. Превращает препятствие в путь.', question: 'Что трудного происходит в твоей жизни сейчас? Как это могло бы сделать тебя сильнее?' },
+  { id: 'evening-review', title: 'Вечерний обзор стоика', source: 'Сенека', category: 'Стоицизм', color: '#6366f1', desc: 'Каждый вечер Сенека задавал себе три вопроса. Это практика честности с собой.', benefit: 'Развивает самоосознанность. Помогает учиться на каждом дне.', question: 'Что плохого ты сегодня сделал? Что хорошего? Что пропустил и можешь исправить?' },
+  { id: 'view-from-above', title: 'Взгляд сверху', source: 'Марк Аврелий', category: 'Стоицизм', color: '#6366f1', desc: 'Представь себя с высоты птичьего полёта. Потом выше — из космоса.', benefit: 'Даёт перспективу. Мелкие проблемы становятся маленькими. Важное остаётся важным.', question: 'Посмотри на свою проблему с высоты 10 лет. Будет ли это важно? Что действительно останется?' },
+  { id: 'three-good', title: 'Три хороших события', source: 'Мартин Селигман', category: 'Позитивная психология', color: '#f59e0b', desc: 'Каждый день записывай три вещи которые пошли хорошо. И почему.', benefit: 'Клинически доказано снижает депрессию и повышает удовлетворённость жизнью за 2 недели.', question: 'Назови три вещи которые сегодня пошли хорошо — даже маленькие. Почему они произошли?' },
+  { id: 'best-self', title: 'Лучшее возможное Я', source: 'Лора Кинг, Позитивная психология', category: 'Позитивная психология', color: '#f59e0b', desc: 'Представь лучшую версию себя через 5 лет. Напиши об этом подробно.', benefit: 'Повышает оптимизм и мотивацию. Помогает прояснить ценности и цели.', question: 'Напиши о себе через 5 лет — если всё пошло хорошо. Кто ты? Как живёшь? Что чувствуешь?' },
+  { id: 'flow', title: 'Поиск потока', source: 'Михай Чиксентмихайи', category: 'Позитивная психология', color: '#f59e0b', desc: 'Поток — состояние полного погружения когда время останавливается.', benefit: 'Высшая форма счастья по науке. Регулярный поток — основа смысла и благополучия.', question: 'Когда ты последний раз забывал о времени? Что ты делал? Как создать больше таких моментов?' },
+  { id: 'cognitive', title: 'Когнитивная реструктуризация', source: 'Аарон Бек, КПТ', category: 'КПТ', color: '#10b981', desc: 'Найди автоматическую негативную мысль и оспорь её доказательствами.', benefit: 'Основа когнитивно-поведенческой терапии. Научно доказана эффективность при депрессии и тревоге.', question: 'Запиши негативную мысль которая тебя беспокоит. Каковы доказательства ЗА и ПРОТИВ неё?' },
+  { id: 'friend-letter', title: 'Письмо другу', source: 'КПТ', category: 'КПТ', color: '#10b981', desc: 'Напиши себе письмо как написал бы другу в той же ситуации.', benefit: 'Снижает самокритику. Активирует систему самосострадания. Меняет внутренний диалог.', question: 'Представь что твой близкий друг в твоей ситуации. Что бы ты ему написал? Напиши это себе.' },
+  { id: 'meaning', title: 'Поиск смысла', source: 'Виктор Франкл, Логотерапия', category: 'Экзистенциальная', color: '#8b5cf6', desc: 'Смысл можно найти в страдании, творчестве и любви. Даже в самых тёмных моментах.', benefit: 'Люди со смыслом переносят страдания в 10 раз лучше. Смысл — главный предиктор благополучия.', question: 'Что придаёт смысл твоей жизни прямо сейчас? Если трудно ответить — что могло бы придать?' },
+  { id: 'values', title: 'Ценностный компас', source: 'ACT-терапия', category: 'ACT', color: '#ef4444', desc: 'Ценности — это не цели, это направления. Они не достигаются, по ним живут.', benefit: 'Жизнь в соответствии с ценностями — главный предиктор психологического благополучия.', question: 'Назови три ценности которые для тебя важнее всего. Живёшь ли ты в соответствии с ними?' },
+  { id: 'discomfort', title: 'Добровольный дискомфорт', source: 'Сенека', category: 'Стоицизм', color: '#6366f1', desc: 'Раз в неделю намеренно откажись от удобства. Пойди пешком. Поголодай день.', benefit: 'Тренирует устойчивость. Снижает зависимость от комфорта. Делает тебя сильнее.', question: 'От какого удобства ты мог бы отказаться на один день? Что это изменит в твоём восприятии?' },
 ];
 
 export default function Compass() {
   const { isDark } = useTheme();
+  const [sessions, setSessions] = useState<Session[]>([]);
+  const [current, setCurrent] = useState<Practice | null>(null);
   const [answer, setAnswer] = useState('');
+  const [showAll, setShowAll] = useState(false);
+  const [favorites, setFavorites] = useState<string[]>(() => JSON.parse(localStorage.getItem('mirror-compass-favorites') || '[]'));
   const [saved, setSaved] = useState(false);
-  const [showHistory, setShowHistory] = useState(false);
 
-  const today = new Date();
-  const dayOfYear = Math.floor((today.getTime() - new Date(today.getFullYear(), 0, 0).getTime()) / 86400000);
-  const todayPractice = practices[dayOfYear % practices.length];
+  const bg = isDark ? '#1a1410' : '#fdf6ec';
+  const text = isDark ? '#e8d5b0' : '#5c4a2a';
+  const soft = isDark ? '#a89070' : '#8a7560';
+  const card = isDark ? '#2d2218' : '#fff9f0';
+  const border = isDark ? '#3d2e1e' : '#e8d5b0';
+  const input = isDark ? '#3d2e1e' : '#fff';
 
-  const history = JSON.parse(localStorage.getItem('mirror-compass') || '[]');
+  useEffect(() => {
+    const saved = localStorage.getItem('mirror-compass-sessions');
+    if (saved) setSessions(JSON.parse(saved));
+    const dayIndex = Math.floor(Date.now() / 86400000) % PRACTICES.length;
+    setCurrent(PRACTICES[dayIndex]);
+  }, []);
 
-  const todayStr = today.toISOString().split('T')[0];
-  const alreadyDone = history.some((h: any) => h.date === todayStr);
+  const toggleFav = (id: string) => {
+    const updated = favorites.includes(id) ? favorites.filter(f => f !== id) : [...favorites, id];
+    setFavorites(updated);
+    localStorage.setItem('mirror-compass-favorites', JSON.stringify(updated));
+  };
 
-  const handleSave = () => {
-    if (!answer.trim()) return;
-    const entry = {
-      date: todayStr,
-      practice: todayPractice.title,
-      answer: answer.trim(),
+  const saveSession = () => {
+    if (!answer.trim() || !current) return;
+    const session: Session = {
+      id: Date.now().toString(),
+      date: new Date().toLocaleDateString('ru-RU', { day: 'numeric', month: 'long' }),
+      practiceId: current.id, practiceTitle: current.title, answer,
     };
-    const updated = [entry, ...history];
-    localStorage.setItem('mirror-compass', JSON.stringify(updated));
+    const updated = [session, ...sessions];
+    setSessions(updated);
+    localStorage.setItem('mirror-compass-sessions', JSON.stringify(updated));
+    setAnswer('');
     setSaved(true);
     setTimeout(() => setSaved(false), 3000);
-    setAnswer('');
   };
 
-  const categoryColors: Record<string, string> = {
-    'Стоицизм': '#8B6914',
-    'КПТ': '#4A6B6B',
-    'Позитивная психология': '#5B6B4A',
-    'Осознанность': '#6B4A5B',
-    'Экзистенциальная': '#4A4A6B',
-    'Практическое': '#6B5B4A',
-  };
+  if (showAll) {
+    return (
+      <div style={{ minHeight: '100vh', background: bg, padding: '1.5rem 1rem 6rem', fontFamily: 'Raleway, sans-serif' }}>
+        <div style={{ display: 'flex', alignItems: 'center', gap: '1rem', marginBottom: '1.5rem' }}>
+          <button onClick={() => setShowAll(false)} style={{ background: 'none', border: 'none', color: soft, cursor: 'pointer', fontSize: '0.9rem' }}>← Назад</button>
+          <h2 style={{ fontFamily: 'Cormorant Garamond, serif', fontSize: '1.5rem', color: text, margin: 0 }}>Все практики</h2>
+        </div>
+        <div style={{ display: 'grid', gap: '0.75rem' }}>
+          {PRACTICES.map(p => (
+            <div key={p.id} style={{ background: card, border: `1px solid ${border}`, borderRadius: '16px', padding: '1rem', cursor: 'pointer' }}
+              onClick={() => { setCurrent(p); setShowAll(false); }}>
+              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start' }}>
+                <div>
+                  <p style={{ color: text, fontFamily: 'Cormorant Garamond, serif', fontSize: '1.05rem', margin: '0 0 0.2rem' }}>{p.title}</p>
+                  <p style={{ color: p.color, fontSize: '0.75rem', margin: '0 0 0.3rem' }}>{p.source} · {p.category}</p>
+                  <p style={{ color: soft, fontSize: '0.82rem', margin: 0 }}>{p.desc}</p>
+                </div>
+                <button onClick={e => { e.stopPropagation(); toggleFav(p.id); }} style={{ background: 'none', border: 'none', fontSize: '1.2rem', cursor: 'pointer' }}>
+                  {favorites.includes(p.id) ? '❤️' : '🤍'}
+                </button>
+              </div>
+            </div>
+          ))}
+        </div>
+      </div>
+    );
+  }
 
   return (
-    <div style={{ padding: '1rem 1rem 6rem', maxWidth: '600px', margin: '0 auto' }}>
-      <div style={{ textAlign: 'center', marginBottom: '1.5rem', marginTop: '1rem' }}>
-        <div style={{ fontSize: '2.5rem', marginBottom: '0.5rem' }}>🧭</div>
-        <h1 style={{
-          fontFamily: 'Cormorant Garamond, serif',
-          fontSize: '1.8rem',
-          fontWeight: 600,
-          color: isDark ? '#e8d5b7' : '#2c2416',
-        }}>Компас</h1>
-        <p style={{
-          fontFamily: 'Raleway, sans-serif',
-          fontSize: '0.85rem',
-          color: isDark ? '#a89070' : '#8B7355',
-          marginTop: '0.3rem',
-        }}>
-          Каждый день — новое направление
-        </p>
+    <div style={{ minHeight: '100vh', background: bg, padding: '1.5rem 1rem 6rem', fontFamily: 'Raleway, sans-serif' }}>
+      <div style={{ textAlign: 'center', marginBottom: '1.5rem' }}>
+        <div style={{ fontSize: '2rem' }}>🧭</div>
+        <h1 style={{ fontFamily: 'Cormorant Garamond, serif', fontSize: '2rem', color: text, margin: '0.3rem 0' }}>Компас</h1>
+        <p style={{ color: soft, fontSize: '0.85rem', fontStyle: 'italic' }}>Практика дня — твоё направление</p>
       </div>
 
-      {/* Практика дня */}
-      <div style={{
-        background: isDark ? 'rgba(200,146,42,0.08)' : 'rgba(255,255,255,0.7)',
-        border: `1px solid ${isDark ? 'rgba(200,146,42,0.15)' : '#e8d5b7'}`,
-        borderRadius: '16px',
-        padding: '1.5rem',
-        marginBottom: '1.5rem',
-      }}>
-        <div style={{
-          display: 'inline-block',
-          padding: '0.2rem 0.8rem',
-          borderRadius: '20px',
-          fontSize: '0.7rem',
-          fontFamily: 'Raleway, sans-serif',
-          background: categoryColors[todayPractice.category] || '#6b5a44',
-          color: '#fff',
-          marginBottom: '0.8rem',
-        }}>
-          {todayPractice.category} · {todayPractice.source}
-        </div>
-
-        <h2 style={{
-          fontFamily: 'Cormorant Garamond, serif',
-          fontSize: '1.4rem',
-          fontWeight: 600,
-          color: isDark ? '#e8d5b7' : '#2c2416',
-          marginBottom: '0.8rem',
-        }}>
-          {todayPractice.title}
-        </h2>
-
-        <p style={{
-          fontFamily: 'Raleway, sans-serif',
-          fontSize: '0.85rem',
-          lineHeight: 1.6,
-          color: isDark ? '#a89070' : '#5c4a2a',
-          marginBottom: '1.2rem',
-        }}>
-          {todayPractice.description}
-        </p>
-
-        <div style={{
-          padding: '1rem',
-          background: isDark ? 'rgba(0,0,0,0.2)' : 'rgba(200,146,42,0.06)',
-          borderRadius: '12px',
-          marginBottom: '1rem',
-        }}>
-          <p style={{
-            fontFamily: 'Cormorant Garamond, serif',
-            fontSize: '1rem',
-            fontStyle: 'italic',
-            color: isDark ? '#c8922a' : '#8B6914',
-          }}>
-            «{todayPractice.question}»
-          </p>
-        </div>
-
-        {!alreadyDone && !saved && (
-          <>
-            <textarea
-              value={answer}
-              onChange={(e) => setAnswer(e.target.value)}
-              placeholder="Твой ответ..."
-              style={{
-                width: '100%',
-                minHeight: '120px',
-                padding: '1rem',
-                borderRadius: '12px',
-                border: `1px solid ${isDark ? 'rgba(200,146,42,0.2)' : '#e8d5b7'}`,
-                background: isDark ? 'rgba(0,0,0,0.3)' : '#fff',
-                color: isDark ? '#e8d5b7' : '#2c2416',
-                fontFamily: 'Raleway, sans-serif',
-                fontSize: '0.9rem',
-                resize: 'vertical',
-                outline: 'none',
-                boxSizing: 'border-box',
-              }}
-            />
-            <button
-              onClick={handleSave}
-              disabled={!answer.trim()}
-              style={{
-                width: '100%',
-                padding: '0.8rem',
-                marginTop: '0.8rem',
-                borderRadius: '12px',
-                border: 'none',
-                background: answer.trim() ? 'linear-gradient(135deg, #c8922a, #a07520)' : (isDark ? '#2a2a2a' : '#ddd'),
-                color: answer.trim() ? '#fff' : '#999',
-                fontFamily: 'Raleway, sans-serif',
-                fontSize: '0.9rem',
-                fontWeight: 600,
-                cursor: answer.trim() ? 'pointer' : 'default',
-              }}
-            >
-              Сохранить ✓
+      {current && (
+        <div style={{ background: card, border: `2px solid ${current.color}40`, borderRadius: '20px', padding: '1.5rem', marginBottom: '1rem' }}>
+          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: '1rem' }}>
+            <div>
+              <span style={{ background: current.color + '20', color: current.color, borderRadius: '10px', padding: '0.2rem 0.5rem', fontSize: '0.75rem' }}>{current.category}</span>
+              <h2 style={{ fontFamily: 'Cormorant Garamond, serif', fontSize: '1.6rem', color: text, margin: '0.5rem 0 0.2rem' }}>{current.title}</h2>
+              <p style={{ color: current.color, fontSize: '0.8rem', margin: 0 }}>{current.source}</p>
+            </div>
+            <button onClick={() => toggleFav(current.id)} style={{ background: 'none', border: 'none', fontSize: '1.5rem', cursor: 'pointer' }}>
+              {favorites.includes(current.id) ? '❤️' : '🤍'}
             </button>
-          </>
-        )}
+          </div>
 
-        {(alreadyDone || saved) && (
-          <div style={{
-            textAlign: 'center',
-            padding: '1rem',
-            background: isDark ? 'rgba(200,146,42,0.08)' : 'rgba(200,146,42,0.06)',
-            borderRadius: '12px',
-          }}>
-            <div style={{ fontSize: '1.5rem', marginBottom: '0.5rem' }}>✨</div>
-            <p style={{
-              fontFamily: 'Cormorant Garamond, serif',
-              fontSize: '1rem',
-              color: isDark ? '#c8922a' : '#8B6914',
-            }}>
-              Сегодняшняя практика выполнена
+          <p style={{ color: soft, fontSize: '0.9rem', lineHeight: 1.6, marginBottom: '0.75rem' }}>{current.desc}</p>
+
+          <div style={{ background: current.color + '10', border: `1px solid ${current.color}30`, borderRadius: '12px', padding: '0.75rem', marginBottom: '1rem' }}>
+            <p style={{ color: soft, fontSize: '0.75rem', margin: '0 0 0.3rem' }}>💡 Польза</p>
+            <p style={{ color: text, fontSize: '0.85rem', margin: 0, lineHeight: 1.5 }}>{current.benefit}</p>
+          </div>
+
+          <div style={{ borderTop: `1px solid ${border}`, paddingTop: '1rem', marginBottom: '1rem' }}>
+            <p style={{ fontFamily: 'Cormorant Garamond, serif', fontSize: '1.1rem', color: text, fontStyle: 'italic', lineHeight: 1.6 }}>
+              {current.question}
             </p>
           </div>
-        )}
-      </div>
 
-      {/* История */}
-      {history.length > 0 && (
+          <textarea value={answer} onChange={e => setAnswer(e.target.value)} placeholder="Твой ответ..."
+            style={{ width: '100%', minHeight: '120px', background: input, border: `1px solid ${border}`, borderRadius: '12px', padding: '0.75rem', outline: 'none', color: text, fontFamily: 'Cormorant Garamond, serif', fontSize: '1.05rem', resize: 'none', lineHeight: 1.6, boxSizing: 'border-box' }} />
+
+          <div style={{ display: 'flex', gap: '0.75rem', marginTop: '0.75rem' }}>
+            <button onClick={() => { const r = Math.floor(Math.random() * PRACTICES.length); setCurrent(PRACTICES[r]); setAnswer(''); }} style={{ flex: 1, padding: '0.75rem', background: 'none', border: `1px solid ${border}`, borderRadius: '12px', color: soft, cursor: 'pointer', fontSize: '0.85rem' }}>
+              Другая →
+            </button>
+            <button onClick={saveSession} style={{ flex: 2, padding: '0.75rem', background: saved ? '#10b981' : 'linear-gradient(135deg, #b8860b, #d4a017)', color: '#fff', border: 'none', borderRadius: '12px', cursor: 'pointer', fontSize: '0.9rem' }}>
+              {saved ? '✓ Сохранено' : 'Сохранить ответ'}
+            </button>
+          </div>
+        </div>
+      )}
+
+      <button onClick={() => setShowAll(true)} style={{ width: '100%', padding: '0.75rem', background: card, border: `1px solid ${border}`, borderRadius: '12px', color: soft, cursor: 'pointer', marginBottom: '1.5rem', fontFamily: 'Raleway, sans-serif' }}>
+        Все практики ({PRACTICES.length}) →
+      </button>
+
+      {sessions.length > 0 && (
         <div>
-          <button
-            onClick={() => setShowHistory(!showHistory)}
-            style={{
-              width: '100%',
-              padding: '0.8rem',
-              background: 'none',
-              border: `1px solid ${isDark ? 'rgba(200,146,42,0.15)' : '#e8d5b7'}`,
-              borderRadius: '12px',
-              color: isDark ? '#a89070' : '#8B7355',
-              fontFamily: 'Raleway, sans-serif',
-              fontSize: '0.85rem',
-              cursor: 'pointer',
-            }}
-          >
-            {showHistory ? 'Скрыть историю' : `История практик (${history.length})`}
-          </button>
-
-          {showHistory && (
-            <div style={{ marginTop: '1rem' }}>
-              {history.map((h: any, i: number) => (
-                <div key={i} style={{
-                  padding: '1rem',
-                  marginBottom: '0.8rem',
-                  background: isDark ? 'rgba(255,255,255,0.03)' : 'rgba(255,255,255,0.5)',
-                  border: `1px solid ${isDark ? 'rgba(200,146,42,0.1)' : '#e8d5b7'}`,
-                  borderRadius: '12px',
-                }}>
-                  <div style={{
-                    fontFamily: 'Raleway, sans-serif',
-                    fontSize: '0.7rem',
-                    color: isDark ? '#6b5a44' : '#a09080',
-                    marginBottom: '0.3rem',
-                  }}>
-                    {new Date(h.date).toLocaleDateString('ru-RU', { day: 'numeric', month: 'long' })}
-                  </div>
-                  <div style={{
-                    fontFamily: 'Cormorant Garamond, serif',
-                    fontSize: '1rem',
-                    fontWeight: 600,
-                    color: isDark ? '#c8922a' : '#5c4a2a',
-                    marginBottom: '0.5rem',
-                  }}>
-                    {h.practice}
-                  </div>
-                  <p style={{
-                    fontFamily: 'Raleway, sans-serif',
-                    fontSize: '0.85rem',
-                    color: isDark ? '#a89070' : '#5c4a2a',
-                    lineHeight: 1.5,
-                  }}>
-                    {h.answer}
-                  </p>
-                </div>
-              ))}
+          <p style={{ color: soft, fontSize: '0.8rem', marginBottom: '1rem', borderTop: `1px solid ${border}`, paddingTop: '1rem' }}>История практик</p>
+          {sessions.slice(0, 5).map(s => (
+            <div key={s.id} style={{ background: card, border: `1px solid ${border}`, borderRadius: '14px', padding: '1rem', marginBottom: '0.75rem' }}>
+              <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '0.5rem' }}>
+                <span style={{ color: text, fontSize: '0.9rem', fontFamily: 'Cormorant Garamond, serif' }}>{s.practiceTitle}</span>
+                <span style={{ color: soft, fontSize: '0.75rem' }}>{s.date}</span>
+              </div>
+              <p style={{ color: soft, fontSize: '0.85rem', margin: 0, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{s.answer}</p>
             </div>
-          )}
+          ))}
         </div>
       )}
     </div>

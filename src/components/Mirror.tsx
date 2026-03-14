@@ -1,462 +1,231 @@
 import { useState, useEffect, useRef } from 'react';
 import { useTheme } from '../context/ThemeContext';
 
+interface Session { id: string; date: string; answers: { q: string; a: string }[]; }
+
 const QUESTIONS = [
-  "Что происходит внутри тебя прямо сейчас?",
-  "Чего ты избегаешь в последнее время?",
-  "Что ты боишься признать себе?",
-  "Какую эмоцию ты чаще всего подавляешь?",
-  "Если бы твой страх мог говорить — что бы он сказал?",
-  "Что ты несёшь в себе уже слишком долго?",
-  "Кем ты притворяешься перед другими?",
-  "Что тебя останавливает от того, чтобы быть собой?",
-  "Какую правду ты знаешь, но не хочешь признавать?",
-  "Что бы ты сказал себе, если бы не боялся?",
-  "Где в твоей жизни ты не честен с собой?",
-  "Что тебя по-настоящему пугает?",
-  "Какую боль ты носишь молча?",
-  "Что в тебе хочет быть услышанным?",
-  "Если бы этот момент был последним — о чём бы ты пожалел?",
-  "Что даёт тебе силы, когда всё рушится?",
-  "За что ты себя не можешь простить?",
-  "Что ты ищешь, но не можешь найти?",
-  "Какой версией себя ты хочешь стать?",
-  "Что для тебя значит быть живым?",
+  'Что ты сейчас избегаешь признать себе?',
+  'Чего ты по-настоящему боишься?',
+  'Что бы ты сделал, если бы знал что не провалишься?',
+  'Когда ты последний раз был полностью честен с собой?',
+  'Что тебе нужно отпустить чтобы двигаться вперёд?',
+  'Кем ты хочешь стать? Что тебе мешает?',
+  'Что ты чувствуешь прямо сейчас — под словами?',
+  'Какую историю ты рассказываешь себе о своей жизни?',
+  'Что бы ты сказал себе 10-летнему?',
+  'Что делает тебя живым?',
+  'От чего ты устал притворяться?',
+  'Что важное ты откладываешь?',
+  'Кого ты ещё не простил — включая себя?',
+  'Что ты хочешь чтобы люди знали о тебе?',
+  'Что бы ты сделал с последним годом жизни?',
+  'Чего тебе не хватает для счастья прямо сейчас?',
+  'Какая часть тебя просит внимания?',
+  'Что ты сделал сегодня для себя — не для других?',
+  'Что бы изменилось если бы ты полюбил себя?',
+  'Какой вопрос ты боишься себе задать?',
 ];
 
-function getSessionQuestions() {
+function getRandomQuestions(n: number) {
   const shuffled = [...QUESTIONS].sort(() => Math.random() - 0.5);
-  return shuffled.slice(0, 7);
-}
-
-interface Session {
-  id: string;
-  date: string;
-  questions: string[];
-  answers: string[];
-}
-
-// Animated orbs
-function LivingMirror() {
-  const { isDark } = useTheme();
-  const canvasRef = useRef<HTMLCanvasElement>(null);
-
-  useEffect(() => {
-    const canvas = canvasRef.current;
-    if (!canvas) return;
-    const ctx = canvas.getContext('2d');
-    if (!ctx) return;
-
-    canvas.width = 280;
-    canvas.height = 280;
-
-    const orbs = Array.from({ length: 6 }, (_, i) => ({
-      x: 140 + Math.cos((i / 6) * Math.PI * 2) * 60,
-      y: 140 + Math.sin((i / 6) * Math.PI * 2) * 60,
-      vx: (Math.random() - 0.5) * 0.8,
-      vy: (Math.random() - 0.5) * 0.8,
-      radius: 18 + Math.random() * 20,
-      hue: 30 + i * 25,
-      phase: Math.random() * Math.PI * 2,
-    }));
-
-    let frame = 0;
-    let animId: number;
-
-    function draw() {
-      if (!ctx || !canvas) return;
-      ctx.clearRect(0, 0, 280, 280);
-
-      frame += 0.012;
-
-      // Background circle
-      const bg = ctx.createRadialGradient(140, 140, 0, 140, 140, 130);
-      bg.addColorStop(0, isDark ? 'rgba(60,45,30,0.6)' : 'rgba(255,248,235,0.8)');
-      bg.addColorStop(1, isDark ? 'rgba(30,20,10,0.2)' : 'rgba(245,235,215,0.3)');
-      ctx.beginPath();
-      ctx.arc(140, 140, 128, 0, Math.PI * 2);
-      ctx.fillStyle = bg;
-      ctx.fill();
-
-      // Breathing rings
-      for (let r = 0; r < 3; r++) {
-        const pulse = Math.sin(frame + r * 1.2) * 10;
-        ctx.beginPath();
-        ctx.arc(140, 140, 40 + r * 28 + pulse, 0, Math.PI * 2);
-        ctx.strokeStyle = isDark
-          ? `rgba(210,170,100,${0.08 - r * 0.02})`
-          : `rgba(180,130,60,${0.1 - r * 0.02})`;
-        ctx.lineWidth = 1;
-        ctx.stroke();
-      }
-
-      // Move and draw orbs
-      orbs.forEach((orb, i) => {
-        orb.phase += 0.015;
-        orb.x += orb.vx + Math.sin(frame + orb.phase) * 0.4;
-        orb.y += orb.vy + Math.cos(frame + orb.phase * 0.7) * 0.4;
-
-        const dx = orb.x - 140;
-        const dy = orb.y - 140;
-        const dist = Math.sqrt(dx * dx + dy * dy);
-        if (dist > 90) {
-          orb.vx -= dx * 0.003;
-          orb.vy -= dy * 0.003;
-        }
-        orb.vx *= 0.99;
-        orb.vy *= 0.99;
-
-        // Draw connections
-        orbs.forEach((other, j) => {
-          if (j <= i) return;
-          const ddx = orb.x - other.x;
-          const ddy = orb.y - other.y;
-          const d = Math.sqrt(ddx * ddx + ddy * ddy);
-          if (d < 100) {
-            ctx.beginPath();
-            ctx.moveTo(orb.x, orb.y);
-            ctx.lineTo(other.x, other.y);
-            ctx.strokeStyle = isDark
-              ? `rgba(210,170,100,${0.15 * (1 - d / 100)})`
-              : `rgba(160,110,40,${0.2 * (1 - d / 100)})`;
-            ctx.lineWidth = 0.8;
-            ctx.stroke();
-          }
-        });
-
-        // Draw orb
-        const gradient = ctx.createRadialGradient(
-          orb.x - orb.radius * 0.3, orb.y - orb.radius * 0.3, 0,
-          orb.x, orb.y, orb.radius
-        );
-        const alpha = 0.5 + Math.sin(frame + orb.phase) * 0.2;
-        gradient.addColorStop(0, `hsla(${orb.hue}, 60%, ${isDark ? 75 : 65}%, ${alpha})`);
-        gradient.addColorStop(1, `hsla(${orb.hue}, 40%, ${isDark ? 45 : 40}%, 0)`);
-        ctx.beginPath();
-        ctx.arc(orb.x, orb.y, orb.radius, 0, Math.PI * 2);
-        ctx.fillStyle = gradient;
-        ctx.fill();
-      });
-
-      // Center glow
-      const centerGlow = ctx.createRadialGradient(140, 140, 0, 140, 140, 30);
-      centerGlow.addColorStop(0, isDark ? 'rgba(220,180,100,0.4)' : 'rgba(200,155,60,0.35)');
-      centerGlow.addColorStop(1, 'rgba(0,0,0,0)');
-      ctx.beginPath();
-      ctx.arc(140, 140, 30, 0, Math.PI * 2);
-      ctx.fillStyle = centerGlow;
-      ctx.fill();
-
-      animId = requestAnimationFrame(draw);
-    }
-
-    draw();
-    return () => cancelAnimationFrame(animId);
-  }, [isDark]);
-
-  return <canvas ref={canvasRef} width={280} height={280} style={{ borderRadius: '50%' }} />;
+  return shuffled.slice(0, n);
 }
 
 export default function Mirror() {
   const { isDark } = useTheme();
-  const [phase, setPhase] = useState<'intro' | 'session' | 'finish'>('intro');
+  const [sessions, setSessions] = useState<Session[]>([]);
+  const [active, setActive] = useState(false);
   const [questions, setQuestions] = useState<string[]>([]);
-  const [current, setCurrent] = useState(0);
-  const [answers, setAnswers] = useState<string[]>([]);
-  const [currentAnswer, setCurrentAnswer] = useState('');
-  const [displayedQuestion, setDisplayedQuestion] = useState('');
-  const [sessions, setSessions] = useState<Session[]>(() => {
-    try { return JSON.parse(localStorage.getItem('mirror-sessions') || '[]'); } catch { return []; }
-  });
-  const [openSession, setOpenSession] = useState<Session | null>(null);
-  const textareaRef = useRef<HTMLTextAreaElement>(null);
+  const [step, setStep] = useState(0);
+  const [answers, setAnswers] = useState<{ q: string; a: string }[]>([]);
+  const [current, setCurrent] = useState('');
+  const [done, setDone] = useState(false);
+  const [viewSession, setViewSession] = useState<Session | null>(null);
+  const [typing, setTyping] = useState(false);
+  const [displayed, setDisplayed] = useState('');
+  const animRef = useRef<ReturnType<typeof setInterval> | null>(null);
 
-  const bg = isDark ? '#1a1208' : '#fdf8f0';
-  const card = isDark ? 'rgba(60,40,20,0.7)' : 'rgba(255,250,238,0.9)';
-  const text = isDark ? '#e8d5b0' : '#3d2b1f';
-  const muted = isDark ? '#a08060' : '#8b6f47';
-  const accent = isDark ? '#c8a96e' : '#9a6f3a';
-  const border = isDark ? 'rgba(200,169,110,0.2)' : 'rgba(180,140,80,0.2)';
+  const bg = isDark ? '#1a1410' : '#fdf6ec';
+  const text = isDark ? '#e8d5b0' : '#5c4a2a';
+  const soft = isDark ? '#a89070' : '#8a7560';
+  const card = isDark ? '#2d2218' : '#fff9f0';
+  const border = isDark ? '#3d2e1e' : '#e8d5b0';
+  const inputBg = isDark ? '#3d2e1e' : '#fff';
 
-  // Typewriter effect
   useEffect(() => {
-    if (phase !== 'session') return;
-    const q = questions[current] || '';
-    setDisplayedQuestion('');
-    let i = 0;
-    const timer = setInterval(() => {
-      if (i <= q.length) {
-        setDisplayedQuestion(q.slice(0, i));
+    const saved = localStorage.getItem('mirror-sessions');
+    if (saved) setSessions(JSON.parse(saved));
+  }, []);
+
+  useEffect(() => {
+    if (questions[step]) {
+      setTyping(true);
+      setDisplayed('');
+      let i = 0;
+      animRef.current = setInterval(() => {
+        setDisplayed(questions[step].slice(0, i + 1));
         i++;
-      } else {
-        clearInterval(timer);
-      }
-    }, 35);
-    return () => clearInterval(timer);
-  }, [current, phase, questions]);
-
-  function startSession() {
-    const q = getSessionQuestions();
-    setQuestions(q);
-    setAnswers([]);
-    setCurrentAnswer('');
-    setCurrent(0);
-    setPhase('session');
-    setTimeout(() => textareaRef.current?.focus(), 100);
-  }
-
-  function nextQuestion() {
-    if (!currentAnswer.trim()) return;
-    const newAnswers = [...answers, currentAnswer.trim()];
-    setAnswers(newAnswers);
-    setCurrentAnswer('');
-
-    if (current + 1 >= questions.length) {
-      setPhase('finish');
-    } else {
-      setCurrent(current + 1);
-      setTimeout(() => textareaRef.current?.focus(), 100);
+        if (i >= questions[step].length) {
+          clearInterval(animRef.current!);
+          setTyping(false);
+        }
+      }, 40);
     }
-  }
+    return () => { if (animRef.current) clearInterval(animRef.current); };
+  }, [step, questions]);
 
-  function saveSession() {
+  const start = () => {
+    const qs = getRandomQuestions(7);
+    setQuestions(qs);
+    setAnswers([]);
+    setCurrent('');
+    setStep(0);
+    setDone(false);
+    setActive(true);
+  };
+
+  const next = () => {
+    const updated = [...answers, { q: questions[step], a: current }];
+    setAnswers(updated);
+    setCurrent('');
+    if (step < questions.length - 1) {
+      setStep(step + 1);
+    } else {
+      setDone(true);
+    }
+  };
+
+  const save = () => {
     const session: Session = {
       id: Date.now().toString(),
-      date: new Date().toLocaleString('ru-RU', { day: 'numeric', month: 'long', year: 'numeric', hour: '2-digit', minute: '2-digit' }),
-      questions,
+      date: new Date().toLocaleDateString('ru-RU', { day: 'numeric', month: 'long', year: 'numeric' }),
       answers,
     };
     const updated = [session, ...sessions];
     setSessions(updated);
     localStorage.setItem('mirror-sessions', JSON.stringify(updated));
-    setPhase('intro');
+    setActive(false);
+    setDone(false);
+  };
+
+  const Orb = () => (
+    <div style={{ position: 'relative', width: '200px', height: '200px', margin: '0 auto' }}>
+      {[0, 1, 2].map(i => (
+        <div key={i} style={{
+          position: 'absolute', inset: `${i * 15}px`, borderRadius: '50%',
+          border: `1px solid ${isDark ? '#b8860b40' : '#b8860b30'}`,
+          animation: `pulse ${2 + i * 0.5}s ease-in-out infinite`,
+        }} />
+      ))}
+      <div style={{
+        position: 'absolute', inset: '40px', borderRadius: '50%',
+        background: isDark ? 'radial-gradient(circle, #b8860b20, #3d2e1e)' : 'radial-gradient(circle, #b8860b15, #f5e6c8)',
+        animation: 'pulse 3s ease-in-out infinite',
+        display: 'flex', alignItems: 'center', justifyContent: 'center',
+        fontSize: '2rem',
+      }}>🔮</div>
+    </div>
+  );
+
+  if (done) {
+    return (
+      <div style={{ minHeight: '100vh', background: bg, padding: '1.5rem 1rem 6rem', fontFamily: 'Raleway, sans-serif' }}>
+        <div style={{ textAlign: 'center', marginBottom: '1.5rem' }}>
+          <div style={{ fontSize: '3rem', marginBottom: '0.5rem' }}>🔮</div>
+          <h2 style={{ fontFamily: 'Cormorant Garamond, serif', fontSize: '1.8rem', color: text }}>Сеанс завершён</h2>
+          <p style={{ color: soft, fontStyle: 'italic' }}>Ты посмотрел в зеркало. Это смело.</p>
+        </div>
+        {answers.map((a, i) => (
+          <div key={i} style={{ background: card, border: `1px solid ${border}`, borderRadius: '16px', padding: '1rem', marginBottom: '0.75rem' }}>
+            <p style={{ color: soft, fontSize: '0.8rem', fontStyle: 'italic', marginBottom: '0.5rem' }}>{a.q}</p>
+            <p style={{ color: text, fontFamily: 'Cormorant Garamond, serif', fontSize: '1.05rem', lineHeight: 1.6 }}>{a.a || '—'}</p>
+          </div>
+        ))}
+        <div style={{ display: 'flex', gap: '0.75rem', marginTop: '1rem' }}>
+          <button onClick={() => { setActive(false); setDone(false); }} style={{ flex: 1, padding: '0.9rem', background: 'none', border: `1px solid ${border}`, borderRadius: '12px', color: soft, cursor: 'pointer' }}>Не сохранять</button>
+          <button onClick={save} style={{ flex: 2, padding: '0.9rem', background: 'linear-gradient(135deg, #b8860b, #d4a017)', color: '#fff', border: 'none', borderRadius: '12px', cursor: 'pointer', fontSize: '1rem' }}>Сохранить сеанс ✓</button>
+        </div>
+      </div>
+    );
+  }
+
+  if (active) {
+    return (
+      <div style={{ minHeight: '100vh', background: bg, padding: '1.5rem 1rem 6rem', fontFamily: 'Raleway, sans-serif' }}>
+        <div style={{ textAlign: 'center', marginBottom: '1rem' }}>
+          <p style={{ color: soft, fontSize: '0.85rem' }}>Вопрос {step + 1} из {questions.length}</p>
+          <div style={{ height: '4px', background: border, borderRadius: '2px', overflow: 'hidden', margin: '0.5rem 0' }}>
+            <div style={{ height: '100%', width: `${((step + 1) / questions.length) * 100}%`, background: 'linear-gradient(90deg, #b8860b, #d4a017)', transition: 'width 0.4s ease', borderRadius: '2px' }} />
+          </div>
+        </div>
+
+        <div style={{ background: card, border: `1px solid ${border}`, borderRadius: '20px', padding: '2rem', textAlign: 'center', marginBottom: '1.5rem', minHeight: '120px', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+          <p style={{ fontFamily: 'Cormorant Garamond, serif', fontSize: '1.3rem', color: text, lineHeight: 1.6, fontStyle: 'italic' }}>
+            {displayed}{typing ? '|' : ''}
+          </p>
+        </div>
+
+        <textarea value={current} onChange={e => setCurrent(e.target.value)} placeholder="Отвечай честно. Никто не читает."
+          style={{ width: '100%', minHeight: '150px', background: inputBg, border: `1px solid ${border}`, borderRadius: '16px', padding: '1rem', outline: 'none', color: text, fontFamily: 'Cormorant Garamond, serif', fontSize: '1.1rem', resize: 'none', lineHeight: 1.6, boxSizing: 'border-box', marginBottom: '1rem' }} />
+
+        <div style={{ display: 'flex', gap: '0.75rem' }}>
+          <button onClick={() => { setAnswers([...answers, { q: questions[step], a: '' }]); if (step < questions.length - 1) { setStep(step + 1); setCurrent(''); } else setDone(true); }} style={{ flex: 1, padding: '0.9rem', background: 'none', border: `1px solid ${border}`, borderRadius: '12px', color: soft, cursor: 'pointer', fontSize: '0.85rem' }}>Пропустить</button>
+          <button onClick={next} disabled={!current.trim()} style={{ flex: 2, padding: '0.9rem', background: current.trim() ? 'linear-gradient(135deg, #b8860b, #d4a017)' : '#ccc', color: '#fff', border: 'none', borderRadius: '12px', cursor: current.trim() ? 'pointer' : 'not-allowed', fontSize: '1rem' }}>
+            {step < questions.length - 1 ? 'Следующий вопрос →' : 'Завершить сеанс ✓'}
+          </button>
+        </div>
+      </div>
+    );
   }
 
   return (
-    <div style={{ minHeight: '100vh', background: bg, paddingBottom: '100px', fontFamily: "'Raleway', sans-serif" }}>
-
-      {/* Header */}
-      <div style={{ textAlign: 'center', padding: '2rem 1.5rem 1rem' }}>
-        <h1 style={{ fontFamily: "'Cormorant Garamond', serif", fontSize: '2rem', color: text, fontWeight: 600, margin: 0 }}>
-          Внутреннее зеркало
-        </h1>
-        <p style={{ color: muted, fontSize: '0.85rem', marginTop: '0.4rem', fontStyle: 'italic' }}>
-          «Если долго смотреть в бездну — бездна начнёт смотреть в тебя»
-        </p>
-        <p style={{ color: muted, fontSize: '0.75rem', marginTop: '0.2rem' }}>— Фридрих Ницше</p>
+    <div style={{ minHeight: '100vh', background: bg, padding: '1.5rem 1rem 6rem', fontFamily: 'Raleway, sans-serif' }}>
+      <div style={{ textAlign: 'center', marginBottom: '2rem' }}>
+        <h1 style={{ fontFamily: 'Cormorant Garamond, serif', fontSize: '2rem', color: text, margin: '0 0 0.5rem' }}>Внутреннее Зеркало</h1>
+        <p style={{ color: soft, fontSize: '0.85rem', fontStyle: 'italic' }}>«Если долго смотреть в бездну — бездна начнёт смотреть в тебя»</p>
+        <p style={{ color: soft, fontSize: '0.75rem' }}>— Ницше</p>
       </div>
 
-      {/* INTRO */}
-      {phase === 'intro' && (
-        <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', padding: '1rem 1.5rem' }}>
+      <Orb />
 
-          {/* Living animation */}
-          <div style={{
-            width: 280, height: 280,
-            borderRadius: '50%',
-            border: `2px solid ${border}`,
-            boxShadow: isDark
-              ? '0 0 60px rgba(200,160,80,0.2), inset 0 0 40px rgba(0,0,0,0.3)'
-              : '0 0 60px rgba(180,130,60,0.15), inset 0 0 40px rgba(255,248,235,0.5)',
-            overflow: 'hidden',
-            marginBottom: '2rem',
-          }}>
-            <LivingMirror />
-          </div>
+      <div style={{ textAlign: 'center', margin: '2rem 0' }}>
+        <p style={{ color: soft, fontSize: '0.9rem', lineHeight: 1.7, marginBottom: '1.5rem' }}>
+          7 честных вопросов. Никто не читает. Только ты и зеркало.
+        </p>
+        <button onClick={start} style={{ background: 'linear-gradient(135deg, #b8860b, #d4a017)', color: '#fff', border: 'none', borderRadius: '14px', padding: '1rem 2.5rem', fontSize: '1rem', cursor: 'pointer', fontFamily: 'Raleway, sans-serif' }}>
+          Начать сеанс 🔮
+        </button>
+      </div>
 
-          <p style={{ color: muted, fontSize: '0.9rem', textAlign: 'center', maxWidth: 300, lineHeight: 1.7, marginBottom: '2rem' }}>
-            Сеанс из 7 вопросов. Честных. Неудобных. Твоих.<br />
-            Здесь нет правильных ответов — только правдивые.
-          </p>
-
-          <button onClick={startSession} style={{
-            background: `linear-gradient(135deg, ${accent}, ${isDark ? '#8a5a2a' : '#7a5a2a'})`,
-            color: '#fff', border: 'none', borderRadius: 50,
-            padding: '0.9rem 2.5rem', fontSize: '1rem',
-            fontFamily: "'Raleway', sans-serif", cursor: 'pointer',
-            boxShadow: `0 4px 20px ${isDark ? 'rgba(200,160,80,0.3)' : 'rgba(150,100,40,0.3)'}`,
-            letterSpacing: '0.05em',
-          }}>
-            Начать сеанс
-          </button>
-
-          {/* Пустое состояние */}
-          {sessions.length === 0 && (
-            <div style={{ textAlign: 'center', padding: '1.5rem 1rem', marginTop: '1rem' }}>
-              <p style={{ fontFamily: 'Cormorant Garamond, serif', color: muted, fontSize: '1rem', fontStyle: 'italic', lineHeight: '1.8' }}>
-                Твои сеансы будут храниться здесь.<br />Каждый — как страница твоей книги.
-              </p>
-            </div>
-          )}
-
-          {/* Past sessions */}
-          {sessions.length > 0 && (
-            <div style={{ width: '100%', maxWidth: 480, marginTop: '2.5rem' }}>
-              <p style={{ color: muted, fontSize: '0.8rem', textAlign: 'center', marginBottom: '1rem', letterSpacing: '0.05em' }}>
-                ПРОШЛЫЕ СЕАНСЫ
-              </p>
-              {sessions.slice(0, 5).map(s => (
-                <div key={s.id} onClick={() => setOpenSession(s)} style={{
-                  background: card, borderRadius: 12, padding: '0.9rem 1.2rem',
-                  marginBottom: '0.6rem', cursor: 'pointer',
-                  border: `1px solid ${border}`,
-                  display: 'flex', justifyContent: 'space-between', alignItems: 'center',
-                }}>
-                  <span style={{ color: text, fontSize: '0.85rem' }}>{s.date}</span>
-                  <span style={{ color: muted, fontSize: '0.8rem' }}>{s.questions.length} вопросов →</span>
-                </div>
-              ))}
-            </div>
-          )}
-        </div>
-      )}
-
-      {/* SESSION */}
-      {phase === 'session' && (
-        <div style={{ padding: '1rem 1.5rem', maxWidth: 480, margin: '0 auto' }}>
-
-          {/* Progress */}
-          <div style={{ marginBottom: '1.5rem' }}>
-            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '0.5rem' }}>
-              <span style={{ color: muted, fontSize: '0.8rem' }}>Вопрос {current + 1} из {questions.length}</span>
-              <span style={{ color: muted, fontSize: '0.8rem' }}>{Math.round(((current) / questions.length) * 100)}%</span>
-            </div>
-            <div style={{ height: 3, background: border, borderRadius: 2 }}>
-              <div style={{
-                height: '100%', borderRadius: 2,
-                background: `linear-gradient(90deg, ${accent}, ${isDark ? '#e8c070' : '#c8903a'})`,
-                width: `${((current) / questions.length) * 100}%`,
-                transition: 'width 0.5s ease',
-              }} />
-            </div>
-          </div>
-
-          {/* Question */}
-          <div style={{
-            background: card, borderRadius: 16, padding: '1.8rem',
-            border: `1px solid ${border}`, marginBottom: '1.2rem',
-            boxShadow: isDark ? '0 4px 20px rgba(0,0,0,0.3)' : '0 4px 20px rgba(180,130,60,0.1)',
-            minHeight: 80, display: 'flex', alignItems: 'center',
-          }}>
-            <p style={{
-              fontFamily: "'Cormorant Garamond', serif",
-              fontSize: '1.4rem', color: text,
-              lineHeight: 1.5, margin: 0, fontWeight: 500,
-            }}>
-              {displayedQuestion}
-              <span style={{ opacity: 0.5, animation: 'pulse 1s infinite' }}>|</span>
-            </p>
-          </div>
-
-          {/* Answer */}
-          <textarea
-            ref={textareaRef}
-            value={currentAnswer}
-            onChange={e => setCurrentAnswer(e.target.value)}
-            placeholder="Пиши честно. Здесь только ты..."
-            rows={5}
-            style={{
-              width: '100%', background: card, border: `1px solid ${border}`,
-              borderRadius: 12, padding: '1rem', color: text,
-              fontFamily: "'Raleway', sans-serif", fontSize: '0.95rem',
-              resize: 'none', outline: 'none', lineHeight: 1.7,
-              boxSizing: 'border-box',
-            }}
-          />
-
-          <button
-            onClick={nextQuestion}
-            disabled={!currentAnswer.trim()}
-            style={{
-              width: '100%', marginTop: '1rem',
-              background: currentAnswer.trim()
-                ? `linear-gradient(135deg, ${accent}, ${isDark ? '#8a5a2a' : '#7a5a2a'})`
-                : (isDark ? 'rgba(60,40,20,0.5)' : 'rgba(200,180,150,0.4)'),
-              color: currentAnswer.trim() ? '#fff' : muted,
-              border: 'none', borderRadius: 50,
-              padding: '0.9rem', fontSize: '1rem',
-              fontFamily: "'Raleway', sans-serif",
-              cursor: currentAnswer.trim() ? 'pointer' : 'not-allowed',
-              transition: 'all 0.3s',
-            }}
-          >
-            {current + 1 === questions.length ? 'Завершить сеанс ✓' : 'Следующий вопрос →'}
-          </button>
-        </div>
-      )}
-
-      {/* FINISH */}
-      {phase === 'finish' && (
-        <div style={{ padding: '1rem 1.5rem', maxWidth: 480, margin: '0 auto' }}>
-          <div style={{
-            background: card, borderRadius: 16, padding: '1.5rem',
-            border: `1px solid ${border}`, marginBottom: '1.5rem', textAlign: 'center',
-          }}>
-            <div style={{ fontSize: '2.5rem', marginBottom: '0.5rem' }}>🪞</div>
-            <p style={{ fontFamily: "'Cormorant Garamond', serif", fontSize: '1.4rem', color: text, margin: 0 }}>
-              Ты посмотрел в себя.
-            </p>
-            <p style={{ color: muted, fontSize: '0.85rem', marginTop: '0.5rem' }}>
-              Это требует смелости.
-            </p>
-          </div>
-
-          {questions.map((q, i) => (
-            <div key={i} style={{
-              background: card, borderRadius: 12, padding: '1.2rem',
-              border: `1px solid ${border}`, marginBottom: '0.8rem',
-            }}>
-              <p style={{ color: muted, fontSize: '0.8rem', margin: '0 0 0.5rem', fontStyle: 'italic' }}>{q}</p>
-              <p style={{ color: text, fontSize: '0.9rem', margin: 0, lineHeight: 1.6 }}>{answers[i]}</p>
+      {sessions.length > 0 && (
+        <div style={{ marginTop: '2rem' }}>
+          <p style={{ color: soft, fontSize: '0.8rem', marginBottom: '1rem', borderTop: `1px solid ${border}`, paddingTop: '1rem' }}>Прошлые сеансы</p>
+          {sessions.map(s => (
+            <div key={s.id} onClick={() => setViewSession(s)} style={{ background: card, border: `1px solid ${border}`, borderRadius: '14px', padding: '1rem', marginBottom: '0.75rem', cursor: 'pointer', transition: 'all 0.2s ease' }}
+              onMouseEnter={e => (e.currentTarget as HTMLElement).style.transform = 'translateY(-2px)'}
+              onMouseLeave={e => (e.currentTarget as HTMLElement).style.transform = 'translateY(0)'}
+            >
+              <div style={{ display: 'flex', justifyContent: 'space-between' }}>
+                <span style={{ color: text, fontSize: '0.9rem' }}>🔮 Сеанс</span>
+                <span style={{ color: soft, fontSize: '0.8rem' }}>{s.date}</span>
+              </div>
+              <p style={{ color: soft, fontSize: '0.82rem', marginTop: '0.4rem' }}>{s.answers.length} вопросов</p>
             </div>
           ))}
-
-          <div style={{ display: 'flex', gap: '0.8rem', marginTop: '1rem' }}>
-            <button onClick={() => setPhase('intro')} style={{
-              flex: 1, background: 'transparent',
-              border: `1px solid ${border}`, borderRadius: 50,
-              padding: '0.8rem', color: muted,
-              fontFamily: "'Raleway', sans-serif", cursor: 'pointer',
-            }}>
-              Не сохранять
-            </button>
-            <button onClick={saveSession} style={{
-              flex: 2,
-              background: `linear-gradient(135deg, ${accent}, ${isDark ? '#8a5a2a' : '#7a5a2a'})`,
-              border: 'none', borderRadius: 50,
-              padding: '0.8rem', color: '#fff',
-              fontFamily: "'Raleway', sans-serif", cursor: 'pointer',
-              fontSize: '0.95rem',
-            }}>
-              Сохранить сеанс
-            </button>
-          </div>
         </div>
       )}
 
-      {/* Past session modal */}
-      {openSession && (
-        <div onClick={() => setOpenSession(null)} style={{
-          position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.6)',
-          display: 'flex', alignItems: 'center', justifyContent: 'center',
-          zIndex: 100, padding: '1rem',
-        }}>
-          <div onClick={e => e.stopPropagation()} style={{
-            background: isDark ? '#2a1a0a' : '#fffbf2',
-            borderRadius: 20, padding: '1.5rem',
-            maxWidth: 480, width: '100%', maxHeight: '80vh',
-            overflowY: 'auto', border: `1px solid ${border}`,
-          }}>
+      {viewSession && (
+        <div onClick={() => setViewSession(null)} style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.5)', zIndex: 200, display: 'flex', alignItems: 'center', justifyContent: 'center', padding: '1rem' }}>
+          <div onClick={e => e.stopPropagation()} style={{ background: bg, border: `1px solid ${border}`, borderRadius: '20px', padding: '1.5rem', maxWidth: '500px', width: '100%', maxHeight: '80vh', overflowY: 'auto' }}>
             <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '1rem' }}>
-              <p style={{ color: muted, fontSize: '0.85rem', margin: 0 }}>{openSession.date}</p>
-              <button onClick={() => setOpenSession(null)} style={{
-                background: 'none', border: 'none', color: muted, cursor: 'pointer', fontSize: '1.2rem',
-              }}>×</button>
+              <span style={{ color: soft, fontSize: '0.85rem' }}>{viewSession.date}</span>
+              <button onClick={() => setViewSession(null)} style={{ background: 'none', border: 'none', color: soft, fontSize: '1.5rem', cursor: 'pointer' }}>×</button>
             </div>
-            {openSession.questions.map((q, i) => (
+            {viewSession.answers.map((a, i) => (
               <div key={i} style={{ marginBottom: '1rem', paddingBottom: '1rem', borderBottom: `1px solid ${border}` }}>
-                <p style={{ color: muted, fontSize: '0.8rem', margin: '0 0 0.4rem', fontStyle: 'italic' }}>{q}</p>
-                <p style={{ color: text, fontSize: '0.9rem', margin: 0, lineHeight: 1.6 }}>{openSession.answers[i]}</p>
+                <p style={{ color: soft, fontSize: '0.8rem', fontStyle: 'italic', marginBottom: '0.4rem' }}>{a.q}</p>
+                <p style={{ color: text, fontFamily: 'Cormorant Garamond, serif', fontSize: '1.05rem', lineHeight: 1.6 }}>{a.a || '—'}</p>
               </div>
             ))}
           </div>
